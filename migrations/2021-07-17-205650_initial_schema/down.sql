@@ -1,0 +1,7 @@
+DROP TABLE IF EXISTS matrix_rooms;
+DROP TABLE IF EXISTS webhooks;
+DROP TABLE IF EXISTS users;
+
+DROP TYPE IF EXISTS chat_service;
+DROP TYPE IF EXISTS user_role;
+DROP TYPE IF EXISTS arr_type;

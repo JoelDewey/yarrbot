@@ -24,3 +24,5 @@ target/
 
 ### Other
 .idea
+yarrbot.db
+.env

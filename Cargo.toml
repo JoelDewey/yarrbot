@@ -2,5 +2,7 @@
 
 members = [
     "yarrbot",
-    "crate/db"
+    "crate/db",
+    "crate/webhook_api",
+    "crate/common"
 ]

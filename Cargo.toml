@@ -1,8 +1,20 @@
-[workspace]
+[package]
+name = "yarrbot"
+version = "0.1.0"
+edition = "2018"
 
+[workspace]
 members = [
-    "yarrbot",
     "crate/db",
     "crate/webhook_api",
     "crate/common"
 ]
+
+[dependencies]
+dotenv = "0.15.0"
+anyhow = "1.0.42"
+actix-web = "3"
+log = "0.4"
+env_logger = "0.8"
+yarrbot_db = { path = "./crate/db" }
+yarrbot_webhook_api = { path = "./crate/webhook_api" }

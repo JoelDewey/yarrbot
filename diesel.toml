@@ -2,5 +2,5 @@
 # see diesel.rs/guides/configuring-diesel-cli
 
 [print_schema]
-file = "crate/db/src/schema.rs"
+file = "crates/db/src/schema.rs"
 import_types = ["crate::diesel_types::*"]

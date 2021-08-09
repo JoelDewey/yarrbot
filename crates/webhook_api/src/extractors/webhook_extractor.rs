@@ -71,7 +71,7 @@ impl FromRequest for WebhookInfo {
         };
         let uuid = match Uuid::from_short_id(webhook_id) {
             Ok(u) => u,
-            _ => return err(YarrbotApiError::bad_request("ID was unrecognizable.").into()),
+            _ => return err(YarrbotApiError::not_found().into()),
         };
 
         let pool = match req.app_data::<Data<DbPool>>() {

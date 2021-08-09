@@ -1,0 +1,3 @@
+DELETE FROM matrix_rooms WHERE id IN ('a3f5b09b-7891-4212-8c50-72f4eb05c80b', 'f8c19435-ace4-4f74-967e-e26a05c63186');
+DELETE FROM webhooks WHERE id IN ('0891fdfa-3612-41ae-adf1-c2277db90ea2', '464afbf9-3ef3-451a-8992-a47cb95e72a3');
+DELETE FROM users WHERE id = '33a370ef-e309-4b8f-ab72-0e75632282af';

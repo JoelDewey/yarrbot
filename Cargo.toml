@@ -7,14 +7,16 @@ edition = "2018"
 members = [
     "crates/db",
     "crates/webhook_api",
-    "crates/common"
+    "crates/common",
+    "crates/matrix_client"
 ]
 
 [dependencies]
 dotenv = "0.15.0"
 anyhow = "1.0.42"
-actix-web = "3"
+actix-web = {version = "4.0.0-beta.8"}
 log = "0.4"
 env_logger = "0.8"
 yarrbot_db = { path = "crates/db" }
 yarrbot_webhook_api = { path = "crates/webhook_api" }
+yarrbot_matrix_client = { path = "crates/matrix_client" }

@@ -6,6 +6,7 @@ use anyhow::Context;
 use dotenv::dotenv;
 use env_logger::{Builder, Env};
 use yarrbot_db::{initialize_pool, migrate};
+use yarrbot_matrix_client::initialize_matrix_client;
 use yarrbot_webhook_api::webhook_config;
 
 #[actix_web::main]
@@ -29,10 +30,14 @@ async fn main() -> Result<(), anyhow::Error> {
     debug!("Migrating the database...");
     migrate(connection)?;
 
+    debug!("Starting up the connection to the Matrix server...");
+    let matrix_client = initialize_matrix_client(pool.clone()).await?;
+
     debug!("Staring up web server...");
     HttpServer::new(move || {
         App::new()
-            .data(pool.clone())
+            .app_data(web::Data::new(pool.clone()))
+            .app_data(web::Data::new(matrix_client.clone()))
             .service(web::scope("/api/v1").configure(webhook_config))
     })
     .bind("127.0.0.1:8080")?

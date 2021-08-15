@@ -15,7 +15,7 @@ impl ResponseError for YarrbotApiError {
     }
 
     fn error_response(&self) -> HttpResponse {
-        HttpResponse::build(StatusCode::from_u16(self.status).unwrap()).json2(self)
+        HttpResponse::build(StatusCode::from_u16(self.status).unwrap()).json(self)
     }
 }
 

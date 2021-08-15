@@ -16,6 +16,12 @@ pub trait MatrixRoomActions {
         new_room: NewMatrixRoom,
     ) -> Result<MatrixRoom, diesel::result::Error>;
 
+    /// Retrieve a list of rooms up to some limit.
+    fn get_many(
+        connection: &DbPoolConnection,
+        limit: Option<u8>,
+    ) -> Result<Vec<MatrixRoom>, diesel::result::Error>;
+
     /// Delete a [MatrixRoom].
     fn delete(&self, connection: &DbPoolConnection) -> Result<(), diesel::result::Error>;
 }
@@ -29,6 +35,15 @@ impl MatrixRoomActions for MatrixRoom {
             .values(&new_room)
             .execute(connection)?;
         Ok(MatrixRoom::from(new_room))
+    }
+
+    fn get_many(
+        connection: &DbPoolConnection,
+        limit: Option<u8>,
+    ) -> Result<Vec<MatrixRoom>, Error> {
+        matrix_rooms
+            .limit(limit.unwrap_or(10) as i64)
+            .load::<MatrixRoom>(connection)
     }
 
     fn delete(&self, connection: &DbPoolConnection) -> Result<(), Error> {

@@ -1,22 +1,39 @@
 //! Traits and utilities for sending messages to a Matrix server.
 
-use anyhow::Result;
+use anyhow::Error;
+use matrix_sdk::events::room::message::MessageEventContent;
 
-/// Formats information for display in Matrix.
-pub trait MatrixMessage {
-    /// A [String] containing HTML to send to a Matrix room.
-    ///
-    /// # Remarks
-    //
-    // The output of this method should be equivalent to what is returned by
-    // [get_plain].
-    fn get_html(&self) -> Result<String>;
+/// Formatted message data to send via Matrix.
+pub struct MessageData {
+    /// The plain text version of the message to send to clients that don't support HTML messages.
+    pub plain: String,
+    /// The HTML (rich text) version of the message to send.
+    pub html: String,
+}
 
-    /// A [String] containing a plain text message to send to a Matrix room.
-    ///
-    /// # Remarks
-    ///
-    /// The output of this method should be equivalent to what is returned by
-    /// [get_html].
-    fn get_plain(&self) -> Result<String>;
+impl MessageData {
+    pub fn new(plain: &str, html: &str) -> MessageData {
+        MessageData {
+            plain: String::from(plain),
+            html: String::from(html),
+        }
+    }
+}
+
+impl From<MessageData> for MessageEventContent {
+    fn from(message_data: MessageData) -> Self {
+        MessageEventContent::text_html(message_data.plain, message_data.html)
+    }
+}
+
+impl From<Error> for MessageData {
+    fn from(e: Error) -> Self {
+        MessageData::from(format!("Error encountered: {:?}", e).as_str())
+    }
+}
+
+impl From<&str> for MessageData {
+    fn from(m: &str) -> Self {
+        Self::new(m, m)
+    }
 }

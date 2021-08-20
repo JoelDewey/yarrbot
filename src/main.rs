@@ -5,6 +5,7 @@ extern crate log;
 use anyhow::Context;
 use dotenv::dotenv;
 use env_logger::{Builder, Env};
+use tokio::runtime::Handle;
 use yarrbot_db::{initialize_pool, migrate};
 use yarrbot_matrix_client::initialize_matrix_client;
 use yarrbot_webhook_api::webhook_config;
@@ -32,6 +33,14 @@ async fn main() -> Result<(), anyhow::Error> {
 
     debug!("Starting up the connection to the Matrix server...");
     let matrix_client = initialize_matrix_client(pool.clone()).await?;
+    let matrix_client2 = matrix_client.clone();
+    let handle = Handle::current();
+
+    std::thread::spawn(move || {
+        handle.spawn(async move {
+            matrix_client2.start_sync_loop().await.unwrap();
+        });
+    });
 
     debug!("Staring up web server...");
     HttpServer::new(move || {

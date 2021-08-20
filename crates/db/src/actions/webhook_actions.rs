@@ -1,6 +1,6 @@
 use crate::models::{MatrixRoom, NewWebhook, Webhook};
 use crate::schema::webhooks;
-use crate::schema::webhooks::dsl::id;
+use crate::schema::webhooks::dsl::{id, user_id};
 use crate::DbPoolConnection;
 use diesel::prelude::*;
 use diesel::{delete, insert_into, result::Error};
@@ -31,6 +31,15 @@ pub trait WebhookActions {
         &self,
         connection: &DbPoolConnection,
     ) -> Result<Vec<MatrixRoom>, diesel::result::Error>;
+
+    /// Retrieve all [Webhook]s.
+    fn get_all(connection: &DbPoolConnection) -> Result<Vec<Webhook>, diesel::result::Error>;
+
+    /// Retrieve all of a given User's [Webhook]s.
+    fn get_all_by_user_id(
+        connection: &DbPoolConnection,
+        user_id: &Uuid,
+    ) -> Result<Vec<Webhook>, diesel::result::Error>;
 }
 
 impl WebhookActions for Webhook {
@@ -64,5 +73,18 @@ impl WebhookActions for Webhook {
     fn get_rooms(&self, connection: &DbPoolConnection) -> Result<Vec<MatrixRoom>, Error> {
         let results = MatrixRoom::belonging_to(self).load::<MatrixRoom>(connection)?;
         Ok(results)
+    }
+
+    fn get_all(connection: &DbPoolConnection) -> Result<Vec<Webhook>, Error> {
+        webhooks::table.get_results(connection)
+    }
+
+    fn get_all_by_user_id(
+        connection: &DbPoolConnection,
+        uid: &Uuid,
+    ) -> Result<Vec<Webhook>, Error> {
+        webhooks::table
+            .filter(user_id.eq(uid))
+            .get_results(connection)
     }
 }

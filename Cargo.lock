@@ -3288,6 +3288,7 @@ dependencies = [
  "dotenv",
  "env_logger",
  "log",
+ "tokio",
  "yarrbot_db",
  "yarrbot_matrix_client",
  "yarrbot_webhook_api",
@@ -3295,7 +3296,7 @@ dependencies = [
 
 [[package]]
 name = "yarrbot_common"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "base64",
@@ -3317,13 +3318,17 @@ dependencies = [
 
 [[package]]
 name = "yarrbot_matrix_client"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "itertools",
  "log",
  "matrix-sdk",
+ "tokio",
  "url",
+ "uuid",
+ "yarrbot_common",
  "yarrbot_db",
 ]
 

@@ -1,18 +1,17 @@
+mod command_parser;
+mod commands;
 pub mod message;
 
 #[macro_use]
 extern crate log;
 
-use crate::message::MatrixMessage;
+use crate::message::MessageData;
 use anyhow::{Context, Result};
 use itertools::Itertools;
-use matrix_sdk::{
-    events::{room::message::MessageEventContent, AnyMessageEventContent},
-    identifiers::RoomId,
-    Client, SyncSettings,
-};
+use matrix_sdk::{events::AnyMessageEventContent, identifiers::RoomId, Client, SyncSettings};
 use std::convert::TryFrom;
 use std::env;
+use tokio::task::spawn_blocking;
 use url::Url;
 use yarrbot_db::actions::matrix_room_actions::MatrixRoomActions;
 use yarrbot_db::models::MatrixRoom;
@@ -63,7 +62,7 @@ pub async fn initialize_matrix_client(pool: DbPool) -> Result<YarrbotMatrixClien
 impl YarrbotMatrixClient {
     async fn init(client: &Client, pool: &DbPool) -> Result<()> {
         let conn = pool.get()?;
-        let matrix_rooms = MatrixRoom::get_many(&conn, None)?;
+        let matrix_rooms = spawn_blocking(move || MatrixRoom::get_many(&conn, None)).await??;
         let db_rooms = matrix_rooms.iter().map(|r| &r.room_id[..]).unique();
         for db_room in db_rooms {
             let room_id = match RoomId::try_from(db_room) {
@@ -90,11 +89,6 @@ impl YarrbotMatrixClient {
 
     /// Create a new [YarrbotMatrixClient] and connect it to a Matrix homeserver.
     /// The client will attempt to join all [MatrixRoom]s that Yarrbot is configured for.
-    ///
-    /// # Remarks
-    ///
-    /// If a [MatrixRoom]'s [MatrixRoom.room_id] cannot be parsed, the record is deleted.
-    ///
     pub async fn new(matrix_settings: YarrbotMatrixClientSettings, pool: DbPool) -> Result<Self> {
         let YarrbotMatrixClientSettings {
             url,
@@ -103,33 +97,53 @@ impl YarrbotMatrixClient {
         } = matrix_settings;
         let client: Client = Client::new(url)?;
         client
-            .login(username.as_str(), password.as_str(), None, Some("yarrbot"))
+            .login(
+                username.as_str(),
+                password.as_str(),
+                Some("yarrbot"),
+                Some("yarrbot"),
+            )
             .await?;
 
         client.sync_once(SyncSettings::default()).await?;
         YarrbotMatrixClient::init(&client, &pool).await?;
+        client
+            .set_event_handler(Box::new(command_parser::CommandParser::new(
+                client.clone(),
+                pool.clone(),
+            )))
+            .await;
 
         Ok(YarrbotMatrixClient { client, pool })
     }
 
     /// Send a given [MatrixMessage] to a given [MatrixRoom]. Can optionally sync with the server after sending
     /// the message.
-    pub async fn send_message(
-        &self,
-        message: impl MatrixMessage,
-        room: &MatrixRoom,
-        do_sync: bool,
-    ) -> Result<()> {
+    pub async fn send_message(&self, message: MessageData, room: &MatrixRoom) -> Result<()> {
         let room_id = RoomId::try_from(&room.room_id[..])?;
-        let content = AnyMessageEventContent::RoomMessage(MessageEventContent::text_html(
-            message.get_plain()?,
-            message.get_html()?,
-        ));
+        let content = AnyMessageEventContent::RoomMessage(message.into());
 
         self.client.room_send(&room_id, content, None).await?;
-        if do_sync {
-            self.client.sync_once(SyncSettings::default()).await?;
-        }
+
+        Ok(())
+    }
+
+    /// Start the sync loop with the homeserver.
+    ///
+    /// Note: This method will never return.
+    pub async fn start_sync_loop(&self) -> Result<()> {
+        let token = match self.client.sync_token().await {
+            Some(t) => t,
+            None => {
+                self.client.sync_once(SyncSettings::default()).await?;
+                self.client
+                    .sync_token()
+                    .await
+                    .expect("Yarrbot just synced with the homeserver, but no token was found.")
+            }
+        };
+        let settings = SyncSettings::default().token(token);
+        self.client.sync(settings).await;
 
         Ok(())
     }

@@ -1,10 +1,10 @@
 //! Cryptographic functions that support Yarrbot functions.
 
-use anyhow::{ensure, Error};
-use sodiumoxide::crypto::pwhash::argon2id13;
+use anyhow::{ensure, Context, Result};
+use sodiumoxide::{crypto::pwhash::argon2id13, randombytes::randombytes_uniform};
 
 /// Initializes Sodiumoxide.
-fn initialize_sodiumoxide_or_err() -> Result<(), Error> {
+fn initialize_sodiumoxide_or_err() -> Result<()> {
     ensure!(
         sodiumoxide::init().is_ok(),
         "Failed to initialize cryptography library."
@@ -13,7 +13,7 @@ fn initialize_sodiumoxide_or_err() -> Result<(), Error> {
 }
 
 /// Hash a given password and return the bytes representing the hash.
-pub fn hash(password: &str) -> Result<[u8; 128], Error> {
+pub fn hash(password: &str) -> Result<[u8; 128]> {
     initialize_sodiumoxide_or_err()?;
     let result = argon2id13::pwhash(
         password.as_bytes(),
@@ -39,6 +39,16 @@ pub fn verify(password: &str, hash: &[u8]) -> bool {
         Some(h) => argon2id13::pwhash_verify(&h, password.as_bytes()),
         None => false,
     }
+}
+
+/// Generates a random password using characters in the range UTF-8 `U+0021` (exclamation point) to `U+007E` (tilde).
+pub fn generate_password(length: Option<u8>) -> Result<String> {
+    let l = length.unwrap_or(15);
+    initialize_sodiumoxide_or_err()?;
+    let buf: Vec<u8> = (0..l)
+        .map(|_| (randombytes_uniform(126 - 33) + 33) as u8)
+        .collect();
+    String::from_utf8(buf).context("Failed to generate a random password.")
 }
 
 #[cfg(test)]

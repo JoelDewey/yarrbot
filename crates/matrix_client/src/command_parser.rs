@@ -78,10 +78,7 @@ impl EventHandler for CommandParser {
                 let message_data = if !key.is_empty() {
                     let metadata = CommandMetadata {
                         user: event.sender.to_string(),
-                        is_direct_message: match room.members().await {
-                            Ok(v) => v.len() == 2,
-                            Err(_) => false,
-                        },
+                        is_direct_message: room.is_direct(),
                     };
                     let data: VecDeque<&str> = split.collect();
                     self.execute_command(key.as_str(), metadata, data)

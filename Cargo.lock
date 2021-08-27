@@ -3335,10 +3335,11 @@ dependencies = [
 
 [[package]]
 name = "yarrbot_webhook_api"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "actix-rt",
  "actix-web",
+ "anyhow",
  "base64",
  "chrono",
  "dotenv",
@@ -3351,6 +3352,7 @@ dependencies = [
  "uuid",
  "yarrbot_common",
  "yarrbot_db",
+ "yarrbot_matrix_client",
 ]
 
 [[package]]

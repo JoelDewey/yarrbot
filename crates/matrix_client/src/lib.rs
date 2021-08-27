@@ -6,11 +6,15 @@ pub mod message;
 extern crate log;
 
 use crate::message::MessageData;
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use itertools::Itertools;
-use matrix_sdk::{events::AnyMessageEventContent, identifiers::RoomId, Client, SyncSettings};
+use matrix_sdk::{
+    events::AnyMessageEventContent, identifiers::RoomId, Client, ClientConfig, SyncSettings,
+};
 use std::convert::TryFrom;
 use std::env;
+use std::fs;
+use std::path::PathBuf;
 use tokio::task::spawn_blocking;
 use url::Url;
 use yarrbot_db::actions::matrix_room_actions::MatrixRoomActions;
@@ -20,12 +24,14 @@ use yarrbot_db::DbPool;
 const MATRIX_USER_ENV: &str = "YARRBOT_MATRIX_USERNAME";
 const MATRIX_PASS_ENV: &str = "YARRBOT_MATRIX_PASSWORD";
 const MATRIX_HOMESERVER_URL: &str = "YARRBOT_MATRIX_HOMESERVER_URL";
+const BOT_STORAGE_DIR: &str = "YARRBOT_STORAGE_DIR";
 
 /// Settings to configure a [YarrbotMatrixClient].
 pub struct YarrbotMatrixClientSettings {
     pub url: Url,
     pub username: String,
     pub password: String,
+    pub storage_dir: PathBuf,
 }
 
 /// A Matrix client for Yarrbot.
@@ -50,11 +56,40 @@ fn get_password() -> Result<String> {
         .with_context(|| "Could not retrieve the Matrix password from the environment.")
 }
 
+fn get_storage_dir() -> Result<PathBuf> {
+    let mut path = match env::var(BOT_STORAGE_DIR) {
+        Ok(s) => PathBuf::from(s),
+        Err(_) => env::current_dir()?,
+    };
+    let metadata = match fs::metadata(&path) {
+        Ok(m) => m,
+        Err(_) => {
+            fs::create_dir_all(&path)?;
+            fs::metadata(&path)?
+        }
+    };
+    if metadata.is_file() {
+        bail!("Storage directory path is a file: {}", path.display());
+    }
+    if metadata.permissions().readonly() {
+        bail!("Storage directory path is readonly: {}", path.display());
+    }
+    path.push("matrix");
+    match fs::metadata(&path) {
+        Ok(_) => (),
+        Err(_) => {
+            fs::create_dir(&path)?;
+        }
+    }
+    Ok(path)
+}
+
 pub async fn initialize_matrix_client(pool: DbPool) -> Result<YarrbotMatrixClient> {
     let settings = YarrbotMatrixClientSettings {
         username: get_username()?,
         password: get_password()?,
         url: get_homeserver_url()?,
+        storage_dir: get_storage_dir()?,
     };
     Ok(YarrbotMatrixClient::new(settings, pool).await?)
 }
@@ -94,8 +129,10 @@ impl YarrbotMatrixClient {
             url,
             username,
             password,
+            storage_dir,
         } = matrix_settings;
-        let client: Client = Client::new(url)?;
+        let client_config = ClientConfig::new().store_path(storage_dir);
+        let client: Client = Client::new_with_config(url, client_config)?;
         client
             .login(
                 username.as_str(),

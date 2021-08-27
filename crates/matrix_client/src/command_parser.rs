@@ -72,6 +72,11 @@ impl CommandParser {
 #[async_trait]
 impl EventHandler for CommandParser {
     async fn on_room_message(&self, room: Room, event: &SyncMessageEvent<MessageEventContent>) {
+        // Don't respond to messages posted by our bot.
+        if event.sender == self.client.user_id().await.unwrap() {
+            return;
+        }
+
         // Based off of: https://github.com/matrix-org/matrix-rust-sdk/blob/0.3.0/matrix_sdk/examples/command_bot.rs
         if let Room::Joined(room) = room {
             let message_body = if let SyncMessageEvent {

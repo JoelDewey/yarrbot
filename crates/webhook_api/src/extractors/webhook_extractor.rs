@@ -1,9 +1,9 @@
 use crate::yarrbot_api_error::YarrbotApiError;
 use actix_web::dev::Payload;
-use actix_web::http::HeaderValue;
-use actix_web::web::Data;
+use actix_web::web::{block, Data};
 use actix_web::{Error, FromRequest, HttpRequest};
-use futures_util::future::{err, ok, Ready};
+use std::future::Future;
+use std::pin::Pin;
 use uuid::Uuid;
 use yarrbot_common::{crypto::verify, short_id::ShortId};
 use yarrbot_db::actions::webhook_actions::WebhookActions;
@@ -19,16 +19,8 @@ struct WebhookAuth {
     pub password: String,
 }
 
-fn get_webhook_auth(req: &HttpRequest) -> Option<WebhookAuth> {
-    let header: &HeaderValue = match req.headers().get("Authorization") {
-        Some(h) => h,
-        _ => return None,
-    };
-    let value = match header.to_str() {
-        Ok(v) => v,
-        _ => return None,
-    };
-    let mut pieces = value.split_ascii_whitespace();
+fn get_webhook_auth(header: &str) -> Option<WebhookAuth> {
+    let mut pieces = header.split_ascii_whitespace();
     let precursor = pieces.next().unwrap_or("");
     if precursor.to_ascii_lowercase() != "basic" {
         return None;
@@ -53,62 +45,63 @@ fn is_authorized_for_webhook(auth: WebhookAuth, webhook: &Webhook) -> bool {
 }
 
 impl FromRequest for WebhookInfo {
-    type Error = Error;
-    type Future = Ready<Result<Self, Self::Error>>;
     type Config = ();
+    type Error = Error;
+    type Future = Pin<Box<dyn Future<Output = Result<Self, Self::Error>>>>;
 
     fn from_request(req: &HttpRequest, _payload: &mut Payload) -> Self::Future {
-        let webhook_id = match req.match_info().get("webhook_id") {
-            Some(w) => w,
-            _ => {
-                error!("The Webhook extractor was called on an endpoint that doesn't have a webhook_id.");
-                return err(YarrbotApiError::internal_server_error().into());
-            }
-        };
-        let webhook_auth = match get_webhook_auth(req) {
-            Some(a) => a,
-            _ => return err(YarrbotApiError::unauthorized().into()),
-        };
-        let uuid = match Uuid::from_short_id(webhook_id) {
-            Ok(u) => u,
-            _ => return err(YarrbotApiError::not_found().into()),
+        let pool = req.app_data::<Data<DbPool>>().unwrap().clone();
+        let webhook_id = String::from(req.match_info().get("webhook_id").unwrap());
+        let auth_header = match req.headers().get("Authorization") {
+            Some(h) => String::from(h.to_str().unwrap_or("")),
+            None => String::from(""),
         };
 
-        let pool = match req.app_data::<Data<DbPool>>() {
-            Some(p) => p,
-            None => {
-                error!("Connection pool was missing while processing Webhook extractor");
-                return err(YarrbotApiError::internal_server_error().into());
-            }
-        };
-        let conn = match pool.get() {
-            Ok(c) => c,
-            Err(e) => {
-                error!("Encountered an error while retrieving connection: {}", e);
-                return err(YarrbotApiError::internal_server_error().into());
-            }
-        };
+        Box::pin(async move {
+            let conn = match pool.get_ref().get() {
+                Ok(c) => c,
+                Err(e) => {
+                    error!("Encountered an error while retrieving connection: {}", e);
+                    return Err(YarrbotApiError::internal_server_error().into());
+                }
+            };
+            let webhook_auth = match get_webhook_auth(&auth_header) {
+                Some(a) => a,
+                _ => return Err(YarrbotApiError::unauthorized().into()),
+            };
+            let uuid = match Uuid::from_short_id(&webhook_id) {
+                Ok(u) => u,
+                _ => return Err(YarrbotApiError::not_found().into()),
+            };
 
-        let optional_webhook = match Webhook::try_get(&conn, &uuid) {
-            Ok(w) => w,
-            _ => {
-                error!(
-                    "Failed to retrieve webhook with ID \"{}\" from the database.",
-                    uuid
-                );
-                return err(YarrbotApiError::internal_server_error().into());
-            }
-        };
-        let webhook = match optional_webhook {
-            Some(w) => w,
-            _ => return err(YarrbotApiError::not_found().into()),
-        };
+            let optional_webhook = match block(move || Webhook::try_get(&conn, &uuid)).await {
+                Ok(Ok(w)) => w,
+                Err(e) => {
+                    error!(
+                        "Failed to retrieve webhook with ID \"{}\" from the database: {:?}",
+                        uuid, e
+                    );
+                    return Err(YarrbotApiError::internal_server_error().into());
+                }
+                Ok(Err(e)) => {
+                    error!(
+                        "Failed to retrieve webhook with ID \"{}\" from the database: {:?}",
+                        uuid, e
+                    );
+                    return Err(YarrbotApiError::internal_server_error().into());
+                }
+            };
+            let webhook = match optional_webhook {
+                Some(w) => w,
+                _ => return Err(YarrbotApiError::not_found().into()),
+            };
 
-        if is_authorized_for_webhook(webhook_auth, &webhook) {
-            ok(WebhookInfo { webhook })
-        } else {
-            err(YarrbotApiError::unauthorized().into())
-        }
+            if is_authorized_for_webhook(webhook_auth, &webhook) {
+                Ok(WebhookInfo { webhook })
+            } else {
+                Err(YarrbotApiError::unauthorized().into())
+            }
+        })
     }
 }
 
@@ -123,7 +116,7 @@ mod test {
         let req = test::TestRequest::default().to_http_request();
 
         // Act
-        let actual_wrapped = get_webhook_auth(&req);
+        let actual_wrapped = get_webhook_auth("");
 
         // Assert
         assert!(actual_wrapped.is_none());
@@ -132,11 +125,10 @@ mod test {
     #[test]
     fn get_webhook_auth_returns_none_given_value_not_str() {
         // Arrange
-        let input: u64 = 42;
-        let req = test::TestRequest::with_header("authorization", input).to_http_request();
+        let input = "42";
 
         // Act
-        let actual_wrapped = get_webhook_auth(&req);
+        let actual_wrapped = get_webhook_auth(input);
 
         // Assert
         assert!(actual_wrapped.is_none());
@@ -144,11 +136,8 @@ mod test {
 
     #[test]
     fn get_webhook_auth_returns_none_given_malformed_auth_header() {
-        // Arrange
-        let req = test::TestRequest::with_header("authorization", "deadbeef").to_http_request();
-
         // Act
-        let actual_wrapped = get_webhook_auth(&req);
+        let actual_wrapped = get_webhook_auth("deadbeef");
 
         // Assert
         assert!(actual_wrapped.is_none());
@@ -156,12 +145,8 @@ mod test {
 
     #[test]
     fn get_webhook_auth_returns_none_given_not_basic_auth() {
-        // Arrange
-        let req = test::TestRequest::with_header("authorization", "Digest dXNlcjpwYXNzd29yZA==")
-            .to_http_request();
-
         // Act
-        let actual_wrapped = get_webhook_auth(&req);
+        let actual_wrapped = get_webhook_auth("Digest dXNlcjpwYXNzd29yZA==");
 
         // Assert
         assert!(actual_wrapped.is_none());
@@ -169,12 +154,8 @@ mod test {
 
     #[test]
     fn get_webhook_auth_returns_none_given_not_base64() {
-        // Arrange
-        let req = test::TestRequest::with_header("authorization", "Digest dXNlcjpwYXNzd29yZA==")
-            .to_http_request();
-
         // Act
-        let actual_wrapped = get_webhook_auth(&req);
+        let actual_wrapped = get_webhook_auth("Basic notBase64");
 
         // Assert
         assert!(actual_wrapped.is_none());
@@ -184,11 +165,9 @@ mod test {
     fn get_webhook_auth_returns_none_given_str_without_colon_delimiter() {
         // Arrange
         let input_b64 = "dXNlciBwYXNzd29yZA=="; // user password
-        let req = test::TestRequest::with_header("authorization", format!("Basic {}", input_b64))
-            .to_http_request();
 
         // Act
-        let actual_wrapped = get_webhook_auth(&req);
+        let actual_wrapped = get_webhook_auth(&format!("Basic {}", input_b64));
 
         // Assert
         assert!(actual_wrapped.is_none());
@@ -200,11 +179,8 @@ mod test {
         let expected_user = "user";
         let expected_password = "password";
         let input_b64 = "dXNlcjpwYXNzd29yZA=="; // user:password
-        let req = test::TestRequest::with_header("authorization", format!("Basic {}", input_b64))
-            .to_http_request();
-
-        // Act
-        let actual_wrapped = get_webhook_auth(&req);
+                                                // Act
+        let actual_wrapped = get_webhook_auth(&format!("Basic {}", input_b64));
 
         // Assert
         assert!(actual_wrapped.is_some());

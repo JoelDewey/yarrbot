@@ -14,9 +14,9 @@ use diesel::{
 embed_migrations!();
 
 pub mod actions;
-pub mod models;
-pub mod enums;
 mod diesel_types;
+pub mod enums;
+pub mod models;
 mod pool_helper;
 mod schema;
 

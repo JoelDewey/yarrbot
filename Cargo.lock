@@ -3318,13 +3318,14 @@ dependencies = [
 
 [[package]]
 name = "yarrbot_matrix_client"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "async-trait",
  "itertools",
  "log",
  "matrix-sdk",
+ "rand 0.8.4",
  "tokio",
  "url",
  "uuid",

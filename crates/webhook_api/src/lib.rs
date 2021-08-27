@@ -9,6 +9,7 @@ use actix_web::{web, Error, HttpResponse};
 use extractors::webhook_extractor::WebhookInfo;
 use futures_util::StreamExt;
 use yarrbot_db::enums::ArrType;
+use yarrbot_db::models::Webhook;
 use yarrbot_matrix_client::YarrbotMatrixClient;
 
 mod extractors;
@@ -17,15 +18,16 @@ mod models;
 mod yarrbot_api_error;
 
 async fn handle_sonarr(
+    webhook: &Webhook,
     body: &web::BytesMut,
     client: &YarrbotMatrixClient,
 ) -> Result<HttpResponse, Error> {
     let parsed = serde_json::from_slice::<SonarrWebhook>(body);
-    let webhook = match parsed {
+    let data = match parsed {
         Ok(w) => w,
         Err(_) => return Err(YarrbotApiError::bad_request("Unable to parse request body.").into()),
     };
-    match handle_sonarr_webhook(webhook, client).await {
+    match handle_sonarr_webhook(webhook, &data, client).await {
         Ok(r) => Ok(r),
         Err(e) => {
             error!("Encountered error while handling Sonarr webhook: {:?}", e);
@@ -66,7 +68,7 @@ async fn index(
 
     let webhook = webhook_info.webhook;
     match webhook.arr_type {
-        ArrType::Sonarr => handle_sonarr(&body, &matrix_client).await,
+        ArrType::Sonarr => handle_sonarr(&webhook, &body, &matrix_client).await,
         ArrType::Radarr => handle_radarr(&body).await,
     }
 }

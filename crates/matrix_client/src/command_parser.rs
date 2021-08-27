@@ -102,7 +102,15 @@ impl EventHandler for CommandParser {
                 let message_data = if !key.is_empty() {
                     let metadata = CommandMetadata {
                         user: event.sender.to_string(),
-                        is_direct_message: room.is_direct(),
+                        // Note: room.is_direct() doesn't return true when expected.
+                        // This works around the issue.
+                        is_direct_message: match room.members().await {
+                            Ok(v) => v.len() == 2,
+                            Err(e) => {
+                                error!("Failed to retrieve the number of members in the room with ID {}: {:?}", room.room_id().as_str(), e);
+                                return;
+                            }
+                        },
                     };
                     let data: VecDeque<&str> = split.collect();
                     self.execute_command(key.as_str(), metadata, data)

@@ -142,7 +142,7 @@ async fn create_webhook(
     password: &str,
     user: &User,
 ) -> Result<Webhook> {
-    let hashed = hash(&password)?;
+    let hashed = hash(password)?;
     let new_webhook = NewWebhook::new(arr_type, username, hashed.to_vec(), user);
     let conn = pool.get()?;
     Ok(spawn_blocking(move || Webhook::create_webhook(&conn, new_webhook)).await??)
@@ -151,6 +151,6 @@ async fn create_webhook(
 /// Create a Matrix Room record in the database.
 async fn create_matrixroom(pool: &DbPool, room_id: &str, webhook: &Webhook) -> Result<MatrixRoom> {
     let conn = pool.get()?;
-    let new_matrix_room = NewMatrixRoom::new(room_id, &webhook);
+    let new_matrix_room = NewMatrixRoom::new(room_id, webhook);
     Ok(spawn_blocking(move || MatrixRoom::create_room(&conn, new_matrix_room)).await??)
 }

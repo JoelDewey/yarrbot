@@ -16,15 +16,17 @@ use matrix_sdk::{
 use rand::distributions::Uniform;
 use rand::prelude::*;
 use std::collections::VecDeque;
+use tokio::task::spawn_blocking;
 use tokio::time::{sleep, Duration};
 use yarrbot_db::DbPool;
 use yarrbot_db::{actions::user_actions::UserActions, models::User};
 
 const YARRBOT_COMMAND: &str = "!yarrbot";
 
-fn user_exists(pool: &DbPool, username: &str) -> Result<bool> {
+async fn user_exists(pool: &DbPool, username: &str) -> Result<bool> {
     let conn = pool.get()?;
-    let u = User::try_get_by_username(&conn, username)?;
+    let username2 = String::from(username);
+    let u = spawn_blocking(move || User::try_get_by_username(&conn, username2.as_str())).await??;
     match u {
         Some(u) => {
             debug!("User \"{}\" exists with ID {}.", username, u.id.to_string());
@@ -142,7 +144,7 @@ impl EventHandler for CommandParser {
                 .unwrap_or_else(|_| String::from("(Unknown Name)"));
             let room_id = room.room_id().as_str();
             let username = room_member.sender.as_str();
-            match user_exists(&self.pool, username) {
+            match user_exists(&self.pool, username).await {
                 Ok(exists) => {
                     if !exists {
                         match room.reject_invitation().await {

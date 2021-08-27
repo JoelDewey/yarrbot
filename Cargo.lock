@@ -3306,7 +3306,7 @@ dependencies = [
 
 [[package]]
 name = "yarrbot_db"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "diesel",
@@ -3318,7 +3318,7 @@ dependencies = [
 
 [[package]]
 name = "yarrbot_matrix_client"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3344,6 +3344,7 @@ dependencies = [
  "chrono",
  "dotenv",
  "env_logger",
+ "futures",
  "futures-util",
  "lazy_static",
  "log",

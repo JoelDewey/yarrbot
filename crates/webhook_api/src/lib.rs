@@ -10,6 +10,7 @@ use extractors::webhook_extractor::WebhookInfo;
 use futures_util::StreamExt;
 use yarrbot_db::enums::ArrType;
 use yarrbot_db::models::Webhook;
+use yarrbot_db::DbPool;
 use yarrbot_matrix_client::YarrbotMatrixClient;
 
 mod extractors;
@@ -21,13 +22,14 @@ async fn handle_sonarr(
     webhook: &Webhook,
     body: &web::BytesMut,
     client: &YarrbotMatrixClient,
+    pool: &DbPool,
 ) -> Result<HttpResponse, Error> {
     let parsed = serde_json::from_slice::<SonarrWebhook>(body);
     let data = match parsed {
         Ok(w) => w,
         Err(_) => return Err(YarrbotApiError::bad_request("Unable to parse request body.").into()),
     };
-    match handle_sonarr_webhook(webhook, &data, client).await {
+    match handle_sonarr_webhook(webhook, &data, pool, client).await {
         Ok(r) => Ok(r),
         Err(e) => {
             error!("Encountered error while handling Sonarr webhook: {:?}", e);
@@ -49,6 +51,7 @@ const MAX_SIZE: usize = 262_144; // Limit max payload size to 256k.
 
 async fn index(
     webhook_info: WebhookInfo,
+    pool: web::Data<DbPool>,
     matrix_client: web::Data<YarrbotMatrixClient>,
     mut payload: web::Payload,
 ) -> Result<HttpResponse, Error> {
@@ -68,7 +71,7 @@ async fn index(
 
     let webhook = webhook_info.webhook;
     match webhook.arr_type {
-        ArrType::Sonarr => handle_sonarr(&webhook, &body, &matrix_client).await,
+        ArrType::Sonarr => handle_sonarr(&webhook, &body, &matrix_client, &pool).await,
         ArrType::Radarr => handle_radarr(&body).await,
     }
 }

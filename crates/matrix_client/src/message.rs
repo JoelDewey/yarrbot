@@ -4,6 +4,7 @@ use anyhow::Error;
 use matrix_sdk::events::room::message::MessageEventContent;
 
 /// Formatted message data to send via Matrix.
+#[derive(Clone)]
 pub struct MessageData {
     /// The plain text version of the message to send to clients that don't support HTML messages.
     pub plain: String,

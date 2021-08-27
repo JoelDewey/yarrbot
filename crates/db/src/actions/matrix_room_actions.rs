@@ -4,6 +4,7 @@ use crate::DbPoolConnection;
 use diesel::prelude::*;
 use diesel::result::Error;
 use diesel::{delete, insert_into};
+use uuid::Uuid;
 
 pub trait MatrixRoomActions {
     /// Create a new [MatrixRoom] in the database and return the result.
@@ -20,6 +21,12 @@ pub trait MatrixRoomActions {
     fn get_many(
         connection: &DbPoolConnection,
         limit: Option<u8>,
+    ) -> Result<Vec<MatrixRoom>, diesel::result::Error>;
+
+    /// Retrieve Matrix rooms by a given webhook ID.
+    fn get_by_webhook_id(
+        connection: &DbPoolConnection,
+        w_id: &Uuid,
     ) -> Result<Vec<MatrixRoom>, diesel::result::Error>;
 
     /// Delete a [MatrixRoom].
@@ -43,6 +50,15 @@ impl MatrixRoomActions for MatrixRoom {
     ) -> Result<Vec<MatrixRoom>, Error> {
         matrix_rooms
             .limit(limit.unwrap_or(10) as i64)
+            .load::<MatrixRoom>(connection)
+    }
+
+    fn get_by_webhook_id(
+        connection: &DbPoolConnection,
+        w_id: &Uuid,
+    ) -> Result<Vec<MatrixRoom>, Error> {
+        matrix_rooms
+            .filter(webhook_id.eq(w_id))
             .load::<MatrixRoom>(connection)
     }
 

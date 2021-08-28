@@ -104,13 +104,13 @@ pub async fn handle_add(
         }
     };
 
-    MessageDataBuilder::new()
-        .add_line(&format!("Set up a new webhook for {}.", raw_room))
-        .break_character()
-        .add_key_value_with_code("ID", webhook.id.to_short_id().as_str())
-        .add_key_value_with_code("Username", username)
-        .add_key_value_with_code("Password", &password)
-        .to_message_data()
+    let mut builder = MessageDataBuilder::new();
+    builder.add_line(&format!("Set up a new webhook for {}.", raw_room));
+    builder.break_character();
+    builder.add_key_value_with_code("ID", webhook.id.to_short_id().as_str());
+    builder.add_key_value_with_code("Username", username);
+    builder.add_key_value_with_code("Password", &password);
+    builder.to_message_data()
 }
 
 /// Join a Matrix room by [RoomIdOrAliasId] through the bot's homeserver.

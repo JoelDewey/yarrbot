@@ -46,10 +46,10 @@ pub async fn handle_list(
     };
 
     let items: Vec<String> = webhooks.iter().map(|w| w.id.to_short_id()).collect();
-    MessageDataBuilder::new()
-        .add_line("Webhooks:")
-        .add_matrix_message_part(WebhookList { items })
-        .to_message_data()
+    let mut builder = MessageDataBuilder::new();
+    builder.add_line("Webhooks:");
+    builder.add_matrix_message_part(WebhookList { items });
+    builder.to_message_data()
 }
 
 /// Get all webhooks for a user or all webhooks in the system if the user is a System Administrator.
@@ -114,9 +114,9 @@ mod tests {
         let expected_plain = "1, 2, 3 | 1: 2";
         let expected_html = "<ul><li><code>1</code></li><li><code>2</code></li><li><code>3</code></li></ul> <br><strong>1</strong>: 2";
         let items: Vec<String> = (1..4).map(|i| i.to_string()).collect();
-        let builder = MessageDataBuilder::new()
-            .add_matrix_message_part(WebhookList { items })
-            .add_key_value("1", "2");
+        let mut builder = MessageDataBuilder::new();
+        builder.add_matrix_message_part(WebhookList { items });
+        builder.add_key_value("1", "2");
 
         // Act
         let actual = builder.to_message_data();

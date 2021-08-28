@@ -1,5 +1,6 @@
 //! Handles Sonarr-Matrix interactions.
 
+use crate::facades::send_matrix_messages;
 use crate::models::common::ArrHealthCheckResult;
 use crate::models::sonarr::{
     SonarrEpisode, SonarrEpisodeFile, SonarrRelease, SonarrRenamedEpisodeFile, SonarrSeries,
@@ -62,20 +63,13 @@ pub async fn handle_sonarr_webhook(
         } => on_health_check(level, message, health_type, wiki_url),
     };
 
-    let conn = pool.get()?;
-    let webhook_id = webhook.id;
-    let rooms = block(move || MatrixRoom::get_by_webhook_id(&conn, &webhook_id)).await??;
-    let tasks = rooms
-        .iter()
-        .map(|r| matrix_client.send_message(message.clone(), r));
-    for t in join_all(tasks).await.iter().filter(|r| r.is_err()) {
-        error!(
-            "Encountered error while posting to matrix room: {:?}",
-            t.as_ref().unwrap_err()
-        );
+    match send_matrix_messages(pool, &webhook.id, matrix_client, &message).await {
+        Ok(_) => Ok(HttpResponse::Ok().finish()),
+        Err(e) => {
+            error!("Encountered error while sending Matrix messages: {:?}", e);
+            Ok(HttpResponse::InternalServerError().finish())
+        }
     }
-
-    Ok(HttpResponse::Ok().finish())
 }
 
 fn add_heading(builder: &mut MessageDataBuilder, key: &str, value: &str) {

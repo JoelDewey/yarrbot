@@ -94,7 +94,7 @@ fn on_grab(
     release: &SonarrRelease,
 ) -> MessageData {
     let mut builder = MessageDataBuilder::new();
-    add_heading(&mut builder, "Grabbed", &series.title);
+    add_heading(&mut builder, "Series Grabbed", &series.title);
     add_quality(&mut builder, &release.quality);
     builder.break_character();
     add_episodes(&mut builder, episodes);
@@ -109,7 +109,7 @@ fn on_download(
     is_upgrade: &bool,
 ) -> MessageData {
     let mut builder = MessageDataBuilder::new();
-    add_heading(&mut builder, "Downloaded", &series.title);
+    add_heading(&mut builder, "Series Downloaded", &series.title);
     add_quality(&mut builder, &episode_file.quality);
     builder.add_key_value("Is Upgrade", if *is_upgrade { "Yes" } else { "No" });
     builder.break_character();
@@ -175,7 +175,7 @@ fn on_rename(
     renamed_episode_files: &[SonarrRenamedEpisodeFile],
 ) -> MessageData {
     let mut builder = MessageDataBuilder::new();
-    add_heading(&mut builder, "Renamed", &series.title);
+    add_heading(&mut builder, "Series Renamed", &series.title);
     builder.add_matrix_message_part(RenamedFiles::new(renamed_episode_files));
 
     builder.to_message_data()
@@ -196,7 +196,7 @@ fn on_episode_file_delete(
     reason: &Option<String>,
 ) -> MessageData {
     let mut builder = MessageDataBuilder::new();
-    add_heading(&mut builder, "Episode Files Deleted", &series.title);
+    add_heading(&mut builder, "Series Episode Files Deleted", &series.title);
     builder.add_key_value(
         "Reason",
         reason

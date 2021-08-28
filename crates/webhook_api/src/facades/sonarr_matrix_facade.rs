@@ -1,17 +1,14 @@
 //! Handles Sonarr-Matrix interactions.
 
-use crate::facades::send_matrix_messages;
+use crate::facades::{add_heading, add_quality, send_matrix_messages};
 use crate::models::common::ArrHealthCheckResult;
 use crate::models::sonarr::{
     SonarrEpisode, SonarrEpisodeFile, SonarrRelease, SonarrRenamedEpisodeFile, SonarrSeries,
     SonarrWebhook,
 };
-use actix_web::web::block;
 use actix_web::HttpResponse;
 use anyhow::Result;
-use futures::future::join_all;
-use yarrbot_db::actions::matrix_room_actions::MatrixRoomActions;
-use yarrbot_db::models::{MatrixRoom, Webhook};
+use yarrbot_db::models::Webhook;
 use yarrbot_db::DbPool;
 use yarrbot_matrix_client::message::{
     MatrixMessageDataPart, MessageData, MessageDataBuilder, SectionHeadingLevel,
@@ -70,20 +67,6 @@ pub async fn handle_sonarr_webhook(
             Ok(HttpResponse::InternalServerError().finish())
         }
     }
-}
-
-fn add_heading(builder: &mut MessageDataBuilder, key: &str, value: &str) {
-    builder.add_heading(&SectionHeadingLevel::One, &format!("{}: {}", key, value));
-}
-
-fn add_quality(builder: &mut MessageDataBuilder, quality: &Option<String>) {
-    builder.add_key_value(
-        "Quality",
-        quality
-            .as_ref()
-            .unwrap_or(&String::from("Not Specified"))
-            .as_str(),
-    );
 }
 
 fn add_episodes(builder: &mut MessageDataBuilder, episodes: &[SonarrEpisode]) {

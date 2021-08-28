@@ -2,7 +2,7 @@
 
 use super::get_user;
 use crate::command_parser::CommandMetadata;
-use crate::message::MessageData;
+use crate::message::{MessageData, MessageDataBuilder};
 use anyhow::{anyhow, bail, Result};
 use matrix_sdk::identifiers::RoomIdOrAliasId;
 use matrix_sdk::{identifiers::ServerName, room::Room, Client};
@@ -104,16 +104,13 @@ pub async fn handle_add(
         }
     };
 
-    MessageData::from(
-        format!(
-            "Set up a new webhook for {}. ID: {} | Username: {} | Password: {}",
-            raw_room,
-            webhook.id.to_short_id().as_str(),
-            username,
-            password
-        )
-        .as_str(),
-    )
+    MessageDataBuilder::new()
+        .add_line(&format!("Set up a new webhook for {}.", raw_room))
+        .break_character()
+        .add_key_value_with_code("ID", webhook.id.to_short_id().as_str())
+        .add_key_value_with_code("Username", username)
+        .add_key_value_with_code("Password", &password)
+        .to_message_data()
 }
 
 /// Join a Matrix room by [RoomIdOrAliasId] through the bot's homeserver.

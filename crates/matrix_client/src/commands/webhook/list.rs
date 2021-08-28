@@ -2,9 +2,8 @@
 
 use super::get_user;
 use crate::command_parser::CommandMetadata;
-use crate::message::MessageData;
+use crate::message::{MatrixMessageDataPart, MessageData, MessageDataBuilder};
 use anyhow::Result;
-use itertools::Itertools;
 use std::collections::VecDeque;
 use tokio::task::spawn_blocking;
 use yarrbot_common::short_id::ShortId;
@@ -45,9 +44,12 @@ pub async fn handle_list(
             );
         }
     };
-    let id_list = webhooks.iter().map(|w| w.id.to_short_id()).join(" | ");
 
-    MessageData::from(format!("Webhooks: {}", id_list).as_str())
+    let items: Vec<String> = webhooks.iter().map(|w| w.id.to_short_id()).collect();
+    MessageDataBuilder::new()
+        .add_line("Webhooks:")
+        .add_matrix_message_part(WebhookList { items })
+        .to_message_data()
 }
 
 /// Get all webhooks for a user or all webhooks in the system if the user is a System Administrator.
@@ -63,4 +65,64 @@ async fn get_webhooks(pool: &DbPool, user: &User, specifier: String) -> Result<V
         }
     })
     .await??)
+}
+
+struct WebhookList {
+    items: Vec<String>,
+}
+
+impl MatrixMessageDataPart for WebhookList {
+    fn to_plain(&self, break_character: &str) -> String {
+        let items_len = self.items.len();
+        let mut plain_parts = String::from(' ');
+        for (i, item) in self.items.iter().enumerate() {
+            plain_parts.push_str(item);
+            if i < (items_len - 1) {
+                plain_parts.push_str(", ");
+            }
+        }
+
+        plain_parts.push(' ');
+        plain_parts.push_str(break_character);
+        plain_parts
+    }
+
+    fn to_html(&self, break_character: &str) -> String {
+        let mut html_parts = String::from("<ul>");
+        for item in &self.items {
+            html_parts.push_str("<li><code>");
+            html_parts.push_str(item);
+            html_parts.push_str("</code></li>");
+        }
+
+        html_parts.push_str("</ul>");
+
+        html_parts.push(' ');
+        html_parts.push_str(break_character);
+        html_parts
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::commands::webhook::list::WebhookList;
+    use crate::message::MessageDataBuilder;
+
+    #[test]
+    pub fn add_unordered_list_returns_list() {
+        // Arrange
+        let expected_plain = "1, 2, 3 | 1: 2";
+        let expected_html = "<ul><li><code>1</code></li><li><code>2</code></li><li><code>3</code></li></ul> <br><strong>1</strong>: 2";
+        let items: Vec<String> = (1..4).map(|i| i.to_string()).collect();
+        let builder = MessageDataBuilder::new()
+            .add_matrix_message_part(WebhookList { items })
+            .add_key_value("1", "2");
+
+        // Act
+        let actual = builder.to_message_data();
+
+        // Assert
+        assert_eq!(expected_plain, actual.plain);
+        assert_eq!(expected_html, actual.html);
+    }
 }

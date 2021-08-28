@@ -1,10 +1,15 @@
+//! Services for reading webhook data from Sonarr/Radarr and sending it out
+//! via Matrix.
+
 use actix_web::web::block;
 use anyhow::Result;
 
+mod radarr_matrix_facade;
 mod sonarr_matrix_facade;
 
 use crate::models::common::ArrHealthCheckResult;
 use futures::future::join_all;
+pub use radarr_matrix_facade::handle_radarr_webhook;
 pub use sonarr_matrix_facade::handle_sonarr_webhook;
 use uuid::Uuid;
 use yarrbot_db::actions::matrix_room_actions::MatrixRoomActions;
@@ -50,6 +55,7 @@ fn add_quality(builder: &mut MessageDataBuilder, quality: &Option<String>) {
     );
 }
 
+/// Respond to health checks from Sonarr/Radarr.
 fn on_health_check(
     arr_type: &ArrType,
     level: &Option<ArrHealthCheckResult>,

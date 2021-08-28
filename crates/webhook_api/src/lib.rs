@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate log;
 
-use crate::facades::handle_sonarr_webhook;
+use crate::facades::{handle_radarr_webhook, handle_sonarr_webhook};
 use crate::models::radarr::RadarrWebhook;
 use crate::models::sonarr::SonarrWebhook;
 use crate::yarrbot_api_error::YarrbotApiError;
@@ -38,12 +38,23 @@ async fn handle_sonarr(
     }
 }
 
-async fn handle_radarr(body: &web::BytesMut) -> Result<HttpResponse, Error> {
+async fn handle_radarr(
+    webhook: &Webhook,
+    body: &web::BytesMut,
+    client: &YarrbotMatrixClient,
+    pool: &DbPool,
+) -> Result<HttpResponse, Error> {
     let parsed = serde_json::from_slice::<RadarrWebhook>(body);
-    match parsed {
-        // Temporary; won't return the webhook body once the Matrix parts are fleshed out.
-        Ok(w) => Ok(HttpResponse::Ok().json(w)),
-        Err(_) => Err(YarrbotApiError::bad_request("Unable to parse request body.").into()),
+    let data = match parsed {
+        Ok(w) => w,
+        Err(_) => return Err(YarrbotApiError::bad_request("Unable to parse request body.").into()),
+    };
+    match handle_radarr_webhook(webhook, &data, pool, client).await {
+        Ok(r) => Ok(r),
+        Err(e) => {
+            error!("Encountered error while handling Radarr webhook: {:?}", e);
+            Ok(HttpResponse::InternalServerError().finish())
+        }
     }
 }
 
@@ -72,7 +83,7 @@ async fn index(
     let webhook = webhook_info.webhook;
     match webhook.arr_type {
         ArrType::Sonarr => handle_sonarr(&webhook, &body, &matrix_client, &pool).await,
-        ArrType::Radarr => handle_radarr(&body).await,
+        ArrType::Radarr => handle_radarr(&webhook, &body, &matrix_client, &pool).await,
     }
 }
 

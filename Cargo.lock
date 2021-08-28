@@ -3296,7 +3296,7 @@ dependencies = [
 
 [[package]]
 name = "yarrbot_common"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "base64",
@@ -3306,7 +3306,7 @@ dependencies = [
 
 [[package]]
 name = "yarrbot_db"
-version = "0.3.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "diesel",
@@ -3318,7 +3318,7 @@ dependencies = [
 
 [[package]]
 name = "yarrbot_matrix_client"
-version = "0.5.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3335,7 +3335,7 @@ dependencies = [
 
 [[package]]
 name = "yarrbot_webhook_api"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
  "actix-rt",
  "actix-web",

@@ -3,10 +3,12 @@ use anyhow::Result;
 
 mod sonarr_matrix_facade;
 
+use crate::models::common::ArrHealthCheckResult;
 use futures::future::join_all;
 pub use sonarr_matrix_facade::handle_sonarr_webhook;
 use uuid::Uuid;
 use yarrbot_db::actions::matrix_room_actions::MatrixRoomActions;
+use yarrbot_db::enums::ArrType;
 use yarrbot_db::models::MatrixRoom;
 use yarrbot_db::DbPool;
 use yarrbot_matrix_client::message::{MessageData, MessageDataBuilder, SectionHeadingLevel};
@@ -46,4 +48,53 @@ fn add_quality(builder: &mut MessageDataBuilder, quality: &Option<String>) {
             .unwrap_or(&String::from("Not Specified"))
             .as_str(),
     );
+}
+
+fn on_health_check(
+    arr_type: &ArrType,
+    level: &Option<ArrHealthCheckResult>,
+    message: &Option<String>,
+    health_type: &Option<String>,
+    wiki_url: &Option<String>,
+) -> MessageData {
+    let arr = match arr_type {
+        ArrType::Sonarr => "Sonarr",
+        ArrType::Radarr => "Radarr",
+    };
+
+    let mut builder = MessageDataBuilder::new();
+    builder.add_heading(&SectionHeadingLevel::One, &format!("{} Health Check", arr));
+    if level.is_some() {
+        let l = match level.as_ref().unwrap() {
+            ArrHealthCheckResult::Ok => "Ok",
+            ArrHealthCheckResult::Notice => "Notice",
+            ArrHealthCheckResult::Warning => "Warning",
+            ArrHealthCheckResult::Error => "Error",
+            ArrHealthCheckResult::Unknown => "Unknown",
+        };
+        builder.add_key_value("Level", l);
+    } else {
+        builder.add_key_value("Level", "Unknown");
+    }
+
+    builder.add_key_value(
+        "Message",
+        message
+            .as_ref()
+            .unwrap_or(&String::from("No Message Given")),
+    );
+    builder.add_key_value(
+        "Type",
+        health_type
+            .as_ref()
+            .unwrap_or(&String::from("No Message Given")),
+    );
+    builder.add_key_value(
+        "Wiki URL",
+        wiki_url
+            .as_ref()
+            .unwrap_or(&String::from("No Message Given")),
+    );
+
+    builder.to_message_data()
 }

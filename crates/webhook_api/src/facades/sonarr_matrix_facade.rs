@@ -1,7 +1,6 @@
 //! Handles Sonarr-Matrix interactions.
 
-use crate::facades::{add_heading, add_quality, send_matrix_messages};
-use crate::models::common::ArrHealthCheckResult;
+use crate::facades::{add_heading, add_quality, on_health_check, send_matrix_messages};
 use crate::models::sonarr::{
     SonarrEpisode, SonarrEpisodeFile, SonarrRelease, SonarrRenamedEpisodeFile, SonarrSeries,
     SonarrWebhook,
@@ -10,9 +9,7 @@ use actix_web::HttpResponse;
 use anyhow::Result;
 use yarrbot_db::models::Webhook;
 use yarrbot_db::DbPool;
-use yarrbot_matrix_client::message::{
-    MatrixMessageDataPart, MessageData, MessageDataBuilder, SectionHeadingLevel,
-};
+use yarrbot_matrix_client::message::{MatrixMessageDataPart, MessageData, MessageDataBuilder};
 use yarrbot_matrix_client::YarrbotMatrixClient;
 
 /// Process webhook data pushed from Sonarr. This method will post messages to the rooms configured for
@@ -57,7 +54,7 @@ pub async fn handle_sonarr_webhook(
             message,
             health_type,
             wiki_url,
-        } => on_health_check(level, message, health_type, wiki_url),
+        } => on_health_check(&webhook.arr_type, level, message, health_type, wiki_url),
     };
 
     match send_matrix_messages(pool, &webhook.id, matrix_client, &message).await {
@@ -215,49 +212,6 @@ fn on_test(series: &SonarrSeries, episodes: &[SonarrEpisode]) -> MessageData {
     let mut builder = MessageDataBuilder::new();
     add_heading(&mut builder, "Sonarr Test", &series.title);
     add_episodes(&mut builder, episodes);
-
-    builder.to_message_data()
-}
-
-fn on_health_check(
-    level: &Option<ArrHealthCheckResult>,
-    message: &Option<String>,
-    health_type: &Option<String>,
-    wiki_url: &Option<String>,
-) -> MessageData {
-    let mut builder = MessageDataBuilder::new();
-    builder.add_heading(&SectionHeadingLevel::One, "Sonarr Health Check");
-    if level.is_some() {
-        let l = match level.as_ref().unwrap() {
-            ArrHealthCheckResult::Ok => "Ok",
-            ArrHealthCheckResult::Notice => "Notice",
-            ArrHealthCheckResult::Warning => "Warning",
-            ArrHealthCheckResult::Error => "Error",
-            ArrHealthCheckResult::Unknown => "Unknown",
-        };
-        builder.add_key_value("Level", l);
-    } else {
-        builder.add_key_value("Level", "Unknown");
-    }
-
-    builder.add_key_value(
-        "Message",
-        message
-            .as_ref()
-            .unwrap_or(&String::from("No Message Given")),
-    );
-    builder.add_key_value(
-        "Type",
-        health_type
-            .as_ref()
-            .unwrap_or(&String::from("No Message Given")),
-    );
-    builder.add_key_value(
-        "Wiki URL",
-        wiki_url
-            .as_ref()
-            .unwrap_or(&String::from("No Message Given")),
-    );
 
     builder.to_message_data()
 }

@@ -23,15 +23,15 @@ async fn main() -> Result<(), anyhow::Error> {
 
     info!("Initializing Yarrbot...");
 
-    debug!("Initializing database connection pool...");
+    info!("Initializing database connection pool...");
     let pool = initialize_pool()?;
     let connection = pool
         .get()
         .context("Could not retrieve a connection from the connection pool.")?;
-    debug!("Migrating the database...");
+    info!("Migrating the database...");
     migrate(connection)?;
 
-    debug!("Starting up the connection to the Matrix server...");
+    info!("Starting up the connection to the Matrix server...");
     let matrix_client = initialize_matrix_client(pool.clone()).await?;
     let matrix_client2 = matrix_client.clone();
     let handle = Handle::current();
@@ -42,16 +42,18 @@ async fn main() -> Result<(), anyhow::Error> {
         });
     });
 
-    debug!("Staring up web server...");
-    HttpServer::new(move || {
+    info!("Staring up web server...");
+    let http_server = HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(pool.clone()))
             .app_data(web::Data::new(matrix_client.clone()))
             .service(web::scope("/api/v1").configure(webhook_config))
     })
     .bind("127.0.0.1:8080")?
-    .run()
-    .await?;
+    .run();
+
+    info!("Yarrbot started!");
+    http_server.await?;
 
     info!("Shutting Yarrbot down.");
     Ok(())

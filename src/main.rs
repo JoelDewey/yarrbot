@@ -4,13 +4,17 @@ extern crate dotenv;
 #[macro_use]
 extern crate log;
 
-use anyhow::Context;
+use anyhow::{Context, Result};
 use dotenv::dotenv;
 use env_logger::{Builder, Env};
+use std::str::FromStr;
 use tokio::runtime::Handle;
+use yarrbot_common::environment;
 use yarrbot_db::{initialize_pool, migrate};
 use yarrbot_matrix_client::initialize_matrix_client;
 use yarrbot_webhook_api::webhook_config;
+
+const PORT_ENV_VAR: &str = "YARRBOT_WEB_PORT";
 
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -32,7 +36,7 @@ async fn main() -> Result<(), anyhow::Error> {
         .context("Could not retrieve a connection from the connection pool.")?;
     info!("Migrating the database...");
     migrate(connection)?;
-    
+
     info!("Running any first-time setup functions...");
     initialization::first_time_initialization(&pool)?;
 
@@ -54,7 +58,7 @@ async fn main() -> Result<(), anyhow::Error> {
             .app_data(web::Data::new(matrix_client.clone()))
             .service(web::scope("/api/v1").configure(webhook_config))
     })
-    .bind("127.0.0.1:8080")?
+    .bind(format!("127.0.0.1:{}", get_port()?))?
     .run();
 
     info!("Yarrbot started!");
@@ -62,4 +66,15 @@ async fn main() -> Result<(), anyhow::Error> {
 
     info!("Shutting Yarrbot down.");
     Ok(())
+}
+
+fn get_port() -> Result<String> {
+    let value = match environment::get_env_var(PORT_ENV_VAR) {
+        Ok(v) => v,
+        Err(_) => String::from("8080"),
+    };
+    match u16::from_str(&value) {
+        Ok(_) => Ok(value),
+        Err(e) => Err(e).context(format!("Failed to parse \"{}\" as a valid port.", value)),
+    }
 }

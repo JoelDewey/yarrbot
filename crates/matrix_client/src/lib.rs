@@ -9,7 +9,9 @@ use crate::message::MessageData;
 use anyhow::{bail, Context, Result};
 use itertools::Itertools;
 use matrix_sdk::{
-    events::AnyMessageEventContent, identifiers::{RoomId, UserId}, Client, ClientConfig, SyncSettings,
+    events::AnyMessageEventContent,
+    identifiers::{RoomId, UserId},
+    Client, ClientConfig, SyncSettings,
 };
 use std::convert::TryFrom;
 use std::env;
@@ -49,6 +51,7 @@ pub struct YarrbotMatrixClient {
 
 fn get_homeserver_url() -> Result<Url> {
     let raw = environment::get_env_var(MATRIX_HOMESERVER_URL)?;
+    info!("Received homeserver URL: {}", &raw);
     Url::parse(&raw).with_context(|| "Parsing of homeserver URL failed.")
 }
 
@@ -106,6 +109,7 @@ pub async fn initialize_matrix_client(pool: DbPool) -> Result<YarrbotMatrixClien
 impl YarrbotMatrixClient {
     async fn init(client: &Client, pool: &DbPool) -> Result<()> {
         let conn = pool.get()?;
+        debug!("Retrieving list of MatrixRooms from the database.");
         let matrix_rooms = spawn_blocking(move || MatrixRoom::get_many(&conn, None)).await??;
         let db_rooms = matrix_rooms.iter().map(|r| &r.room_id[..]).unique();
         for db_room in db_rooms {
@@ -140,6 +144,7 @@ impl YarrbotMatrixClient {
             password,
             storage_dir,
         } = matrix_settings;
+        debug!("Logging into homeserver.");
         let client_config = ClientConfig::new().store_path(storage_dir);
         let client: Client = Client::new_with_config(url, client_config)?;
         client
@@ -151,8 +156,10 @@ impl YarrbotMatrixClient {
             )
             .await?;
 
+        debug!("Performing initial sync with homeserver.");
         client.sync_once(SyncSettings::default()).await?;
         YarrbotMatrixClient::init(&client, &pool).await?;
+        debug!("Setting CommandParser event handler.");
         client
             .set_event_handler(Box::new(command_parser::CommandParser::new(
                 client.clone(),
@@ -160,6 +167,7 @@ impl YarrbotMatrixClient {
             )))
             .await;
 
+        debug!("Matrix Client is ready.");
         Ok(YarrbotMatrixClient { client, pool })
     }
 
@@ -189,6 +197,7 @@ impl YarrbotMatrixClient {
             }
         };
         let settings = SyncSettings::default().token(token);
+        debug!("Beginning sync loop.");
         self.client.sync(settings).await;
 
         Ok(())

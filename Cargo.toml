@@ -22,6 +22,7 @@ actix-web = {version = "4.0.0-beta.8"}
 log = "0.4"
 env_logger = "0.8"
 tokio = { version = "1", features = ["rt", "sync"] }
+yarrbot_common = { path = "crates/common" }
 yarrbot_db = { path = "crates/db" }
 yarrbot_webhook_api = { path = "crates/webhook_api" }
 yarrbot_matrix_client = { path = "crates/matrix_client" }

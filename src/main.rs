@@ -1,3 +1,5 @@
+mod initialization;
+
 extern crate dotenv;
 #[macro_use]
 extern crate log;
@@ -30,6 +32,9 @@ async fn main() -> Result<(), anyhow::Error> {
         .context("Could not retrieve a connection from the connection pool.")?;
     info!("Migrating the database...");
     migrate(connection)?;
+    
+    info!("Running any first-time setup functions...");
+    initialization::first_time_initialization(&pool)?;
 
     info!("Starting up the connection to the Matrix server...");
     let matrix_client = initialize_matrix_client(pool.clone()).await?;

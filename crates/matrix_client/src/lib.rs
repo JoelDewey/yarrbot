@@ -9,7 +9,7 @@ use crate::message::MessageData;
 use anyhow::{bail, Context, Result};
 use itertools::Itertools;
 use matrix_sdk::{
-    events::AnyMessageEventContent, identifiers::RoomId, Client, ClientConfig, SyncSettings,
+    events::AnyMessageEventContent, identifiers::{RoomId, UserId}, Client, ClientConfig, SyncSettings,
 };
 use std::convert::TryFrom;
 use std::env;
@@ -26,6 +26,11 @@ const MATRIX_USER_ENV: &str = "YARRBOT_MATRIX_USERNAME";
 const MATRIX_PASS_ENV: &str = "YARRBOT_MATRIX_PASSWORD";
 const MATRIX_HOMESERVER_URL: &str = "YARRBOT_MATRIX_HOMESERVER_URL";
 const BOT_STORAGE_DIR: &str = "YARRBOT_STORAGE_DIR";
+
+/// Check if a given [user_id] is valid.
+pub fn is_user_id(user_id: &str) -> bool {
+    UserId::try_from(user_id).is_ok()
+}
 
 /// Settings to configure a [YarrbotMatrixClient].
 pub struct YarrbotMatrixClientSettings {

@@ -2,6 +2,7 @@ use crate::models::{NewUser, User};
 use crate::schema::users::dsl::*;
 use crate::DbPoolConnection;
 use diesel::prelude::*;
+use diesel::result::Error;
 use diesel::{delete, insert_into};
 
 pub trait UserActions {
@@ -23,6 +24,9 @@ pub trait UserActions {
 
     /// Delete a [User].
     fn delete(&self, connection: &DbPoolConnection) -> Result<(), diesel::result::Error>;
+
+    /// Check if any [User] records exist in the database.
+    fn any(connection: &DbPoolConnection) -> Result<bool, diesel::result::Error>;
 }
 
 impl UserActions for User {
@@ -47,5 +51,10 @@ impl UserActions for User {
     fn delete(&self, connection: &DbPoolConnection) -> Result<(), diesel::result::Error> {
         delete(users).filter(id.eq(self.id)).execute(connection)?;
         Ok(())
+    }
+
+    fn any(connection: &DbPoolConnection) -> Result<bool, Error> {
+        let count: i64 = users.count().get_result(connection)?;
+        Ok(count > 0)
     }
 }

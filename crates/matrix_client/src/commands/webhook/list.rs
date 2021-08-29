@@ -50,8 +50,13 @@ pub async fn handle_list(
     debug!("Listing webhooks.");
     let items: Vec<String> = webhooks.iter().map(|w| w.id.to_short_id()).collect();
     let mut builder = MessageDataBuilder::new();
-    builder.add_line("Webhooks:");
-    builder.add_matrix_message_part(WebhookList { items });
+    if items.is_empty() {
+        builder.add_line("No webhooks to list.");
+    } else {
+        builder.add_line("Webhooks:");
+        builder.add_matrix_message_part(WebhookList { items });
+    }
+
     builder.to_message_data()
 }
 

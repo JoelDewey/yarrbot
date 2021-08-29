@@ -112,7 +112,6 @@ pub async fn handle_add(
     info!("Webhook created: {} ({})", &webhook_id, &webhook.id);
     let mut builder = MessageDataBuilder::new();
     builder.add_line(&format!("Set up a new webhook for {}.", raw_room));
-    builder.break_character();
     builder.add_key_value_with_code("ID", &webhook_id);
     builder.add_key_value_with_code("Username", username);
     builder.add_key_value_with_code("Password", &password);

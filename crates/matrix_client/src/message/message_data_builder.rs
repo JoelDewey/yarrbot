@@ -45,7 +45,7 @@ impl MessageDataBuilder {
     pub fn new() -> Self {
         MessageDataBuilder {
             plain_parts: String::new(),
-            html_parts: String::from(DEFAULT_HTML_BREAK),
+            html_parts: String::new(),
         }
     }
 
@@ -130,7 +130,7 @@ impl MessageDataBuilder {
         };
         write!(
             self.html_parts,
-            "<div><{}>{}</{}></div><hr>",
+            "<div><{}><i>{}</i></{}></div><hr>",
             html_heading, text, html_heading
         )
         .expect("Failed to write to underlying HTML String.");
@@ -159,12 +159,18 @@ impl MessageDataBuilder {
     ///  * Trailing "break characters" (as inserted by [Self::break_character()]) are trimmed.
     ///  * For HTML messages only, a single "break character" is inserted after trimming for formatting.
     pub fn to_message_data(&self) -> MessageData {
-        MessageData::new(
+        let mut plain = String::from(
             self.plain_parts
                 .trim_end_matches(DEFAULT_PLAIN_BREAK)
                 .trim(),
-            self.html_parts.trim_end_matches(DEFAULT_HTML_BREAK).trim(),
-        )
+        );
+        plain.push(' ');
+        plain.push_str(DEFAULT_PLAIN_BREAK);
+        let mut html = String::from(self.html_parts.trim_end_matches(DEFAULT_HTML_BREAK).trim());
+        html.push(' ');
+        html.push_str(DEFAULT_HTML_BREAK);
+
+        MessageData::new(&plain, &html)
     }
 }
 
@@ -183,8 +189,8 @@ mod tests {
     #[test]
     pub fn key_value_returns_result_without_trailing_break_character_given_single_use() {
         // Arrange
-        let expected_plain = "**Test**: Of KeyValue";
-        let expected_html = "<br><strong>Test</strong>: Of KeyValue";
+        let expected_plain = "**Test**: Of KeyValue \n";
+        let expected_html = "<strong>Test</strong>: Of KeyValue <br>";
         let mut builder = MessageDataBuilder::new();
         builder.add_key_value("Test", "Of KeyValue");
 
@@ -199,9 +205,9 @@ mod tests {
     #[test]
     pub fn key_value_returns_result_with_separating_break_character_given_multiple_uses() {
         // Arrange
-        let expected_plain = "**Test**: Of KeyValue \n **Test2**: Of KeyValue2";
+        let expected_plain = "**Test**: Of KeyValue \n **Test2**: Of KeyValue2 \n";
         let expected_html =
-            "<br><strong>Test</strong>: Of KeyValue <br><strong>Test2</strong>: Of KeyValue2";
+            "<strong>Test</strong>: Of KeyValue <br><strong>Test2</strong>: Of KeyValue2 <br>";
         let mut builder = MessageDataBuilder::new();
         builder.add_key_value("Test", "Of KeyValue");
         builder.add_key_value("Test2", "Of KeyValue2");
@@ -229,8 +235,8 @@ mod tests {
     #[test]
     pub fn add_matrix_message_part_inserts_as_is() {
         // Arrange
-        let expected_plain = "Testing test \n **1**: 2";
-        let expected_html = "<br><h1>Testing</h1><br>Test! <br><strong>1</strong>: 2";
+        let expected_plain = "Testing test \n **1**: 2 \n";
+        let expected_html = "<h1>Testing</h1><br>Test! <br><strong>1</strong>: 2 <br>";
         let mut builder = MessageDataBuilder::new();
         builder.add_matrix_message_part(TestMessageDataPart);
         builder.add_key_value("1", "2");
@@ -246,8 +252,8 @@ mod tests {
     #[test]
     pub fn add_heading_inserts_expected() {
         // Arrange
-        let expected_plain = "## Test 123 \n\n **1**: 2";
-        let expected_html = "<br><div><h2>Test 123</h2></div><hr><strong>1</strong>: 2";
+        let expected_plain = "## Test 123 \n\n **1**: 2 \n";
+        let expected_html = "<div><h2><i>Test 123</i></h2></div><hr><strong>1</strong>: 2 <br>";
         let mut builder = MessageDataBuilder::new();
         builder.add_heading(&SectionHeadingLevel::Two, "Test 123");
         builder.add_key_value("1", "2");

@@ -58,8 +58,12 @@ impl CommandParser {
         data: VecDeque<&str>,
     ) -> Result<MessageData> {
         let result = match command {
-            "ping" => ping_command::get_message(),
+            "ping" => {
+                debug!("Received ping command.");
+                ping_command::get_message()
+            },
             "webhook" => {
+                debug!("Received webhook command.");
                 webhook_command::handle_webhook_command(metadata, &self.client, &self.pool, data)
                     .await?
             }
@@ -74,6 +78,7 @@ impl EventHandler for CommandParser {
     async fn on_room_message(&self, room: Room, event: &SyncMessageEvent<MessageEventContent>) {
         // Don't respond to messages posted by our bot.
         if event.sender == self.client.user_id().await.unwrap() {
+            debug!("Ignoring message posted by the bot itself.");
             return;
         }
 
@@ -93,11 +98,13 @@ impl EventHandler for CommandParser {
             {
                 message_body
             } else {
+                debug!("Matrix message body is not correct.");
                 return;
             };
             let mut split = message_body.split_whitespace();
             let first = split.next().unwrap_or("").to_lowercase();
             if first == YARRBOT_COMMAND {
+                debug!("Received !yarrbot command.");
                 let key = split.next().unwrap_or("").to_lowercase();
                 let message_data = if !key.is_empty() {
                     let metadata = CommandMetadata {
@@ -117,8 +124,11 @@ impl EventHandler for CommandParser {
                         .await
                         .unwrap_or_else(|e| e.into())
                 } else {
+                    debug!("Command {} unrecognized.", &key);
                     MessageData::from("Unrecognized command.")
                 };
+                
+                debug!("Sending response to command.");
                 let send_result = room
                     .send(
                         AnyMessageEventContent::RoomMessage(message_data.into()),
@@ -142,6 +152,7 @@ impl EventHandler for CommandParser {
 
         // Don't respond to invites if they're not meant for us.
         if room_member.state_key != self.client.user_id().await.unwrap() {
+            debug!("Received invite that's not meant for the bot.");
             return;
         }
 

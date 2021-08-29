@@ -57,6 +57,7 @@ impl FromRequest for WebhookInfo {
             None => String::from(""),
         };
 
+        debug!("Processing webhook request with ID {}.", &webhook_id);
         Box::pin(async move {
             let conn = match pool.get_ref().get() {
                 Ok(c) => c,
@@ -65,15 +66,18 @@ impl FromRequest for WebhookInfo {
                     return Err(YarrbotApiError::internal_server_error().into());
                 }
             };
+            debug!("Attempting to retrieve login information for webhook {}.", &webhook_id);
             let webhook_auth = match get_webhook_auth(&auth_header) {
                 Some(a) => a,
                 _ => return Err(YarrbotApiError::unauthorized().into()),
             };
+            debug!("Converting webhook {} back into a UUID.", &webhook_id);
             let uuid = match Uuid::from_short_id(&webhook_id) {
                 Ok(u) => u,
                 _ => return Err(YarrbotApiError::not_found().into()),
             };
 
+            debug!("Getting webhook {} from the database.", &webhook_id);
             let optional_webhook = match block(move || Webhook::try_get(&conn, &uuid)).await {
                 Ok(Ok(w)) => w,
                 Err(e) => {
@@ -92,13 +96,21 @@ impl FromRequest for WebhookInfo {
                 }
             };
             let webhook = match optional_webhook {
-                Some(w) => w,
-                _ => return Err(YarrbotApiError::not_found().into()),
+                Some(w) => {
+                    debug!("Webhook {} found in database.", &webhook_id);
+                    w
+                },
+                _ => {
+                    debug!("Failed to find webhook {} in the database.", &webhook_id);
+                    return Err(YarrbotApiError::not_found().into())
+                },
             };
 
             if is_authorized_for_webhook(webhook_auth, &webhook) {
+                info!("Webhook {} ({}) retrieved and authorized.", &webhook_id, &webhook.id);
                 Ok(WebhookInfo { webhook })
             } else {
+                debug!("Current request is not authorized for webhook {}.", &webhook_id);
                 Err(YarrbotApiError::unauthorized().into())
             }
         })

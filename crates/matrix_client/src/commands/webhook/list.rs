@@ -19,9 +19,11 @@ pub async fn handle_list(
     pool: &DbPool,
     mut data: VecDeque<&str>,
 ) -> MessageData {
-    let user = match get_user(pool, metadata.user).await {
+    debug!("Listing webhooks.");
+    let user = match get_user(pool, &metadata.user).await {
         Ok(Some(u)) => u,
         Ok(None) => {
+            warn!("{} attempted to list webhooks but is not authorized to do so.", &metadata.user);
             return MessageData::from("You are not allowed to modify webhooks.");
         }
         Err(e) => {
@@ -45,6 +47,7 @@ pub async fn handle_list(
         }
     };
 
+    debug!("Listing webhooks.");
     let items: Vec<String> = webhooks.iter().map(|w| w.id.to_short_id()).collect();
     let mut builder = MessageDataBuilder::new();
     builder.add_line("Webhooks:");

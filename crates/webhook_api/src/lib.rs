@@ -81,10 +81,18 @@ async fn index(
     }
 
     let webhook = webhook_info.webhook;
-    match webhook.arr_type {
-        ArrType::Sonarr => handle_sonarr(&webhook, &body, &matrix_client, &pool).await,
-        ArrType::Radarr => handle_radarr(&webhook, &body, &matrix_client, &pool).await,
-    }
+    let result = match webhook.arr_type {
+        ArrType::Sonarr => {
+            debug!("Starting processing of Sonarr webhook.");
+            handle_sonarr(&webhook, &body, &matrix_client, &pool).await
+        },
+        ArrType::Radarr => {
+            debug!("Starting processing of Radarr webhook.");
+            handle_radarr(&webhook, &body, &matrix_client, &pool).await
+        },
+    };
+    debug!("Finished processing webhook.");
+    result
 }
 
 pub fn webhook_config(cfg: &mut web::ServiceConfig) {

@@ -19,9 +19,16 @@ pub async fn handle_remove(
     pool: &DbPool,
     mut data: VecDeque<&str>,
 ) -> MessageData {
-    let user = match get_user(pool, metadata.user).await {
+    debug!("Removing a webhook.");
+    let user = match get_user(pool, &metadata.user).await {
         Ok(Some(u)) => u,
-        Ok(None) => return MessageData::from("You are not allowed to modify webhooks."),
+        Ok(None) => {
+            warn!(
+                "{} attempted to remove a webhook but is not authorized to do so.",
+                &metadata.user
+            );
+            return MessageData::from("You are not allowed to modify webhooks.");
+        }
         Err(e) => {
             error!(
                 "Encountered an error while retrieving user information from the database: {:?}",
@@ -50,6 +57,7 @@ pub async fn handle_remove(
         return MessageData::from("You are not allowed to modify this webhook.");
     }
 
+    info!("Deleting webhook: {}", webhook_id);
     match delete_webhook(pool, webhook).await {
         Ok(_) => MessageData::from("Webhook removed."),
         Err(e) => {

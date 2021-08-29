@@ -4,6 +4,7 @@ extern crate dotenv;
 #[macro_use]
 extern crate log;
 
+use actix_web::middleware::Logger;
 use anyhow::{Context, Result};
 use dotenv::dotenv;
 use env_logger::{Builder, Env};
@@ -54,6 +55,7 @@ async fn main() -> Result<(), anyhow::Error> {
     info!("Staring up web server...");
     let http_server = HttpServer::new(move || {
         App::new()
+            .wrap(Logger::default())
             .app_data(web::Data::new(pool.clone()))
             .app_data(web::Data::new(matrix_client.clone()))
             .service(web::scope("/api/v1").configure(webhook_config))

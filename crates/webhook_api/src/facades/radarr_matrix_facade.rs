@@ -105,6 +105,7 @@ fn on_test(
     remote_movie: &RadarrRemoteMovie,
     release: &RadarrRelease,
 ) -> MessageData {
+    info!("Received Test webhook from Radarr.");
     let mut builder = MessageDataBuilder::new();
     add_heading(
         &mut builder,
@@ -122,6 +123,7 @@ fn on_grab(
     remote_movie: &RadarrRemoteMovie,
     release: &RadarrRelease,
 ) -> MessageData {
+    info!("Received Grab webhook from Radarr.");
     let mut builder = MessageDataBuilder::new();
     add_heading(
         &mut builder,
@@ -140,6 +142,7 @@ fn on_download(
     movie_file: &RadarrMovieFile,
     is_upgrade: &bool,
 ) -> MessageData {
+    info!("Received Download webhook from Radarr.");
     let mut builder = MessageDataBuilder::new();
     add_heading(
         &mut builder,
@@ -154,6 +157,7 @@ fn on_download(
 }
 
 fn on_rename(movie: &RadarrMovie) -> MessageData {
+    info!("Received Rename webhook from Radarr.");
     let mut builder = MessageDataBuilder::new();
     add_heading(
         &mut builder,
@@ -169,6 +173,7 @@ fn on_rename(movie: &RadarrMovie) -> MessageData {
 }
 
 fn on_movie_delete(movie: &RadarrMovie, deleted_files: &bool) -> MessageData {
+    info!("Received Movie Delete webhook from Radarr.");
     let mut builder = MessageDataBuilder::new();
     add_heading(
         &mut builder,
@@ -185,6 +190,7 @@ fn on_movie_file_delete(
     movie_file: &RadarrMovieFile,
     delete_reason: &Option<String>,
 ) -> MessageData {
+    info!("Received Movie File Delete webhook from Radarr.");
     let mut builder = MessageDataBuilder::new();
     add_heading(
         &mut builder,

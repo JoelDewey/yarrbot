@@ -109,7 +109,7 @@ pub async fn initialize_matrix_client(pool: DbPool) -> Result<YarrbotMatrixClien
 impl YarrbotMatrixClient {
     async fn init(client: &Client, pool: &DbPool) -> Result<()> {
         let conn = pool.get()?;
-        debug!("Retrieving list of MatrixRooms from the database.");
+        info!("Retrieving list of MatrixRooms from the database.");
         let matrix_rooms = spawn_blocking(move || MatrixRoom::get_many(&conn, None)).await??;
         let db_rooms = matrix_rooms.iter().map(|r| &r.room_id[..]).unique();
         for db_room in db_rooms {
@@ -128,7 +128,7 @@ impl YarrbotMatrixClient {
                     join_result.unwrap_err()
                 );
             } else {
-                debug!("Joined room: {}", db_room);
+                info!("Joined room: {}", db_room);
             }
         }
 
@@ -144,7 +144,7 @@ impl YarrbotMatrixClient {
             password,
             storage_dir,
         } = matrix_settings;
-        debug!("Logging into homeserver.");
+        debug!("Logging into the homeserver.");
         let client_config = ClientConfig::new().store_path(storage_dir);
         let client: Client = Client::new_with_config(url, client_config)?;
         client

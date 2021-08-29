@@ -24,9 +24,13 @@ pub async fn handle_add(
     pool: &DbPool,
     mut data: VecDeque<&str>,
 ) -> MessageData {
-    let user = match get_user(pool, metadata.user).await {
+    let user = match get_user(pool, &metadata.user).await {
         Ok(Some(u)) => u,
         Ok(None) => {
+            warn!(
+                "{} attempted to add a webhook but is not authorized to do so.",
+                &metadata.user
+            );
             return MessageData::from("You are not allowed to modify webhooks.");
         }
         Err(e) => {
@@ -104,10 +108,12 @@ pub async fn handle_add(
         }
     };
 
+    let webhook_id = webhook.id.to_short_id();
+    info!("Webhook created: {} ({})", &webhook_id, &webhook.id);
     let mut builder = MessageDataBuilder::new();
     builder.add_line(&format!("Set up a new webhook for {}.", raw_room));
     builder.break_character();
-    builder.add_key_value_with_code("ID", webhook.id.to_short_id().as_str());
+    builder.add_key_value_with_code("ID", &webhook_id);
     builder.add_key_value_with_code("Username", username);
     builder.add_key_value_with_code("Password", &password);
     builder.to_message_data()

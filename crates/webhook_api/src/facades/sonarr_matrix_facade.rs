@@ -90,6 +90,7 @@ fn on_grab(
     episodes: &[SonarrEpisode],
     release: &SonarrRelease,
 ) -> MessageData {
+    info!("Received Grab webhook from Sonarr.");
     let mut builder = MessageDataBuilder::new();
     add_heading(&mut builder, "Series Grabbed", &series.title);
     add_quality(&mut builder, &release.quality);
@@ -105,6 +106,7 @@ fn on_download(
     episode_file: &SonarrEpisodeFile,
     is_upgrade: &bool,
 ) -> MessageData {
+    info!("Received Download webhook from Sonarr.");
     let mut builder = MessageDataBuilder::new();
     add_heading(&mut builder, "Series Downloaded", &series.title);
     add_quality(&mut builder, &episode_file.quality);
@@ -171,6 +173,7 @@ fn on_rename(
     series: &SonarrSeries,
     renamed_episode_files: &[SonarrRenamedEpisodeFile],
 ) -> MessageData {
+    info!("Received Rename webhook from Sonarr.");
     let mut builder = MessageDataBuilder::new();
     add_heading(&mut builder, "Series Renamed", &series.title);
     builder.add_matrix_message_part(RenamedFiles::new(renamed_episode_files));
@@ -179,6 +182,7 @@ fn on_rename(
 }
 
 fn on_series_delete(series: &SonarrSeries, deleted_files: &bool) -> MessageData {
+    info!("Received Series Delete webhook from Sonarr.");
     let mut builder = MessageDataBuilder::new();
     add_heading(&mut builder, "Series Deleted", &series.title);
     builder.add_key_value("Files Deleted", if *deleted_files { "Yes" } else { "No" });
@@ -192,6 +196,7 @@ fn on_episode_file_delete(
     episode_file: &SonarrEpisodeFile,
     reason: &Option<String>,
 ) -> MessageData {
+    info!("Received Episode File Delete webhook from Sonarr.");
     let mut builder = MessageDataBuilder::new();
     add_heading(&mut builder, "Series Episode Files Deleted", &series.title);
     builder.add_key_value(
@@ -209,6 +214,7 @@ fn on_episode_file_delete(
 }
 
 fn on_test(series: &SonarrSeries, episodes: &[SonarrEpisode]) -> MessageData {
+    info!("Received Test webhook from Sonarr.");
     let mut builder = MessageDataBuilder::new();
     add_heading(&mut builder, "Sonarr Test", &series.title);
     add_episodes(&mut builder, episodes);

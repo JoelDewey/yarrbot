@@ -85,11 +85,11 @@ async fn index(
         ArrType::Sonarr => {
             debug!("Starting processing of Sonarr webhook.");
             handle_sonarr(&webhook, &body, &matrix_client, &pool).await
-        },
+        }
         ArrType::Radarr => {
             debug!("Starting processing of Radarr webhook.");
             handle_radarr(&webhook, &body, &matrix_client, &pool).await
-        },
+        }
     };
     debug!("Finished processing webhook.");
     result

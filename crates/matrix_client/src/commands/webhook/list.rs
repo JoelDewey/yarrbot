@@ -23,7 +23,10 @@ pub async fn handle_list(
     let user = match get_user(pool, &metadata.user).await {
         Ok(Some(u)) => u,
         Ok(None) => {
-            warn!("{} attempted to list webhooks but is not authorized to do so.", &metadata.user);
+            warn!(
+                "{} attempted to list webhooks but is not authorized to do so.",
+                &metadata.user
+            );
             return MessageData::from("You are not allowed to modify webhooks.");
         }
         Err(e) => {

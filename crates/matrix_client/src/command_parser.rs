@@ -61,7 +61,7 @@ impl CommandParser {
             "ping" => {
                 debug!("Received ping command.");
                 ping_command::get_message()
-            },
+            }
             "webhook" => {
                 debug!("Received webhook command.");
                 webhook_command::handle_webhook_command(metadata, &self.client, &self.pool, data)
@@ -127,7 +127,7 @@ impl EventHandler for CommandParser {
                     debug!("Command {} unrecognized.", &key);
                     MessageData::from("Unrecognized command.")
                 };
-                
+
                 debug!("Sending response to command.");
                 let send_result = room
                     .send(

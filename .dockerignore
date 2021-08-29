@@ -1,0 +1,7 @@
+.idea
+migrations_testing
+*.env
+.env
+.gitignore
+docker-compose*.yml
+target

@@ -17,6 +17,7 @@ use std::fs;
 use std::path::PathBuf;
 use tokio::task::spawn_blocking;
 use url::Url;
+use yarrbot_common::environment;
 use yarrbot_db::actions::matrix_room_actions::MatrixRoomActions;
 use yarrbot_db::models::MatrixRoom;
 use yarrbot_db::DbPool;
@@ -42,24 +43,27 @@ pub struct YarrbotMatrixClient {
 }
 
 fn get_homeserver_url() -> Result<Url> {
-    let raw = env::var(MATRIX_HOMESERVER_URL)?;
+    let raw = environment::get_env_var(MATRIX_HOMESERVER_URL)?;
     Url::parse(&raw).with_context(|| "Parsing of homeserver URL failed.")
 }
 
 fn get_username() -> Result<String> {
-    env::var(MATRIX_USER_ENV)
+    environment::get_env_var(MATRIX_USER_ENV)
         .with_context(|| "Could not retrieve the Matrix username from the environment.")
 }
 
 fn get_password() -> Result<String> {
-    env::var(MATRIX_PASS_ENV)
+    environment::get_env_var(MATRIX_PASS_ENV)
         .with_context(|| "Could not retrieve the Matrix password from the environment.")
 }
 
 fn get_storage_dir() -> Result<PathBuf> {
-    let mut path = match env::var(BOT_STORAGE_DIR) {
+    let mut path = match environment::get_env_var(BOT_STORAGE_DIR) {
         Ok(s) => PathBuf::from(s),
-        Err(_) => env::current_dir()?,
+        Err(_) => {
+            info!("No storage directory specified, using the current directory instead.");
+            env::current_dir()?
+        }
     };
     let metadata = match fs::metadata(&path) {
         Ok(m) => m,

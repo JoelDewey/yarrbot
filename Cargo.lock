@@ -3312,8 +3312,10 @@ dependencies = [
  "diesel",
  "diesel-derive-enum",
  "diesel_migrations",
+ "log",
  "serde",
  "uuid",
+ "yarrbot_common",
 ]
 
 [[package]]

@@ -3,6 +3,7 @@
 use crate::commands::*;
 use crate::message::MessageData;
 use anyhow::Result;
+use log::Level::Debug;
 use matrix_sdk::{
     async_trait,
     events::{
@@ -82,6 +83,15 @@ impl EventHandler for CommandParser {
             return;
         }
 
+        if log_enabled!(Debug) {
+            debug!(
+                "Received message from {} in room {} ({}).",
+                event.sender.as_str(),
+                room.name().unwrap_or_else(|| String::from("(No Name)")),
+                room.room_id().as_str()
+            );
+        }
+
         // Based off of: https://github.com/matrix-org/matrix-rust-sdk/blob/0.3.0/matrix_sdk/examples/command_bot.rs
         if let Room::Joined(room) = room {
             let message_body = if let SyncMessageEvent {
@@ -138,6 +148,8 @@ impl EventHandler for CommandParser {
                 if let Err(e) = send_result {
                     error!("Encountered error while responding to command: {:?}", e);
                 }
+            } else {
+                debug!("Received first token \"{}\", ignoring.", &first);
             }
         }
     }

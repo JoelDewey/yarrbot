@@ -76,7 +76,10 @@ fn on_health_check(
             ArrHealthCheckResult::Notice => "Notice",
             ArrHealthCheckResult::Warning => "Warning",
             ArrHealthCheckResult::Error => "Error",
-            ArrHealthCheckResult::Unknown => "Unknown",
+            ArrHealthCheckResult::Unknown => {
+                warn!("Did not recognize the health check level; \"Unknown\" will be used.");
+                "Unknown"
+            }
         };
         builder.add_key_value("Level", l);
     } else {

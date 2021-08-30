@@ -50,6 +50,60 @@ pub struct SonarrRelease {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
+pub struct SonarrQuality {
+    pub id: u64,
+    pub name: String,
+    pub source: Option<String>,
+    pub resolution: u32,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SonarrQualityModel {
+    pub quality: SonarrQuality,
+    // revision omitted
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SonarrExtendedEpisodeRating {
+    pub votes: u32,
+    pub value: serde_json::Number,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SonarrExtendedEpisode {
+    #[serde(flatten)]
+    pub base: SonarrEpisode,
+    pub overview: Option<String>,
+    pub monitored: bool,
+    pub ratings: SonarrExtendedEpisodeRating,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SonarrEpisodeList {
+    pub value: Vec<SonarrExtendedEpisode>,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SonarrEpisodeDeletedFile {
+    pub id: u64,
+    pub relative_path: String,
+    pub path: String,
+    pub quality: Option<SonarrQualityModel>,
+    pub release_group: Option<String>,
+    pub scene_name: Option<String>,
+    pub size: Option<u64>,
+    pub date_added: Option<DateTime<Utc>>,
+    pub episodes: Option<SonarrEpisodeList>,
+    // mediaInfo omitted
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct SonarrEpisodeFile {
     pub id: u64,
     pub relative_path: String,
@@ -104,7 +158,7 @@ pub enum SonarrWebhook {
     EpisodeFileDelete {
         series: SonarrSeries,
         episodes: Vec<SonarrEpisode>,
-        episode_file: SonarrEpisodeFile,
+        episode_file: SonarrEpisodeDeletedFile,
         delete_reason: Option<String>,
     },
     #[serde(rename_all = "camelCase")]
@@ -134,7 +188,7 @@ mod test {
         \"title\": \"Gravity Falls\",
         \"path\": \"C:\\\\Temp\\\\sonarr\\\\Gravity Falls\",
         \"tvdbId\": 259972,
-        \"type\": \"Standard\"
+        \"type\": \"standard\"
     },
     \"episodes\": [
         {
@@ -204,7 +258,7 @@ mod test {
         \"title\": \"Gravity Falls\",
         \"path\": \"C:\\\\Temp\\\\sonarr\\\\Gravity Falls\",
         \"tvdbId\": 259972,
-        \"type\": \"Standard\"
+        \"type\": \"standard\"
     },
     \"episodes\": [
         {
@@ -254,11 +308,11 @@ mod test {
                 id: 1181,
                 relative_path: String::from("Season 02\\Gravity Falls - s02e14.mkv"),
                 path: String::from("C:\\path\\to\\file\\GravityFalls - s02e14.mkv"),
-                quality: Some(String::from("HDTV-720p")),
-                quality_version: Some(1),
                 release_group: None,
                 scene_name: None,
                 size: None,
+                quality: Some(String::from("HDTV-720p")),
+                quality_version: Some(1),
             },
             is_upgrade: false,
             download_client: None,
@@ -279,7 +333,7 @@ mod test {
         \"title\": \"Gravity Falls\",
         \"path\": \"C:\\\\Temp\\\\sonarr\\\\Gravity Falls\",
         \"tvdbId\": 259972,
-        \"type\": \"Standard\"
+        \"type\": \"standard\"
     },
     \"renamedEpisodeFiles\": []
 }
@@ -314,7 +368,7 @@ mod test {
         \"title\": \"Test Title\",
         \"path\": \"C:\\\\testpath\",
         \"tvdbId\": 1234,
-        \"type\": \"Standard\"
+        \"type\": \"standard\"
     },
     \"episodes\": [
         {

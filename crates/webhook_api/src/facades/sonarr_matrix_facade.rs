@@ -2,8 +2,8 @@
 
 use crate::facades::{add_heading, add_quality, on_health_check, send_matrix_messages};
 use crate::models::sonarr::{
-    SonarrEpisode, SonarrEpisodeFile, SonarrRelease, SonarrRenamedEpisodeFile, SonarrSeries,
-    SonarrWebhook,
+    SonarrEpisode, SonarrEpisodeDeletedFile, SonarrEpisodeFile, SonarrRelease,
+    SonarrRenamedEpisodeFile, SonarrSeries, SonarrWebhook,
 };
 use actix_web::HttpResponse;
 use anyhow::Result;
@@ -193,7 +193,7 @@ fn on_series_delete(series: &SonarrSeries, deleted_files: &bool) -> MessageData 
 fn on_episode_file_delete(
     series: &SonarrSeries,
     episodes: &[SonarrEpisode],
-    episode_file: &SonarrEpisodeFile,
+    episode_file: &SonarrEpisodeDeletedFile,
     reason: &Option<String>,
 ) -> MessageData {
     info!("Received Episode File Delete webhook from Sonarr.");
@@ -206,7 +206,12 @@ fn on_episode_file_delete(
             .unwrap_or(&String::from("No Reason Given"))
             .as_str(),
     );
-    add_quality(&mut builder, &episode_file.quality);
+    let q = if let Some(quality) = &episode_file.quality {
+        quality.quality.name.clone()
+    } else {
+        String::from("(No Quality Given)")
+    };
+    add_quality(&mut builder, &Some(q));
     builder.break_character();
     add_episodes(&mut builder, episodes);
 

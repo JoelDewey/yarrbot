@@ -8,6 +8,8 @@ use crate::yarrbot_api_error::YarrbotApiError;
 use actix_web::{web, Error, HttpResponse};
 use extractors::webhook_extractor::WebhookInfo;
 use futures_util::StreamExt;
+use log::Level::Debug;
+use std::str;
 use yarrbot_db::enums::ArrType;
 use yarrbot_db::models::Webhook;
 use yarrbot_db::DbPool;
@@ -27,7 +29,17 @@ async fn handle_sonarr(
     let parsed = serde_json::from_slice::<SonarrWebhook>(body);
     let data = match parsed {
         Ok(w) => w,
-        Err(_) => return Err(YarrbotApiError::bad_request("Unable to parse request body.").into()),
+        Err(e) => {
+            error!(
+                "Encountered an error while parsing Sonarr webhook request body: {:?}",
+                e
+            );
+            if log_enabled!(Debug) {
+                let str_body = str::from_utf8(body).unwrap_or("Could not convert body to string.");
+                debug!("Request Body: {}", str_body);
+            }
+            return Err(YarrbotApiError::bad_request("Unable to parse request body.").into());
+        }
     };
     match handle_sonarr_webhook(webhook, &data, pool, client).await {
         Ok(r) => Ok(r),
@@ -47,7 +59,17 @@ async fn handle_radarr(
     let parsed = serde_json::from_slice::<RadarrWebhook>(body);
     let data = match parsed {
         Ok(w) => w,
-        Err(_) => return Err(YarrbotApiError::bad_request("Unable to parse request body.").into()),
+        Err(e) => {
+            error!(
+                "Encountered an error while parsing Radarr webhook request body: {:?}",
+                e
+            );
+            if log_enabled!(Debug) {
+                let str_body = str::from_utf8(body).unwrap_or("Could not convert body to string.");
+                debug!("Request Body: {}", str_body);
+            }
+            return Err(YarrbotApiError::bad_request("Unable to parse request body.").into());
+        }
     };
     match handle_radarr_webhook(webhook, &data, pool, client).await {
         Ok(r) => Ok(r),

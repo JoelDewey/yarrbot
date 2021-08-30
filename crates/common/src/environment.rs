@@ -9,12 +9,17 @@ use std::fs;
 /// Returns [Result::Ok()] if a value is successfully retrieved from either environment variable;
 /// returns [Result::Err()] otherwise.
 pub fn get_env_var(name: &str) -> Result<String> {
-    match env::var(name) {
+    let result = match env::var(name) {
         Ok(s) => Ok(s),
         Err(e) => Ok(get_from_file(name).context(format!(
             "Could not find a value for {} nor for {}_FILE. Original Error: {:?}",
             name, name, e
         ))?),
+    };
+    if let Ok(s) = result {
+        Ok(s.trim().to_string())
+    } else {
+        result
     }
 }
 

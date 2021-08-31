@@ -19,15 +19,13 @@ use std::fs;
 use std::path::PathBuf;
 use tokio::task::spawn_blocking;
 use url::Url;
-use yarrbot_common::environment;
+use yarrbot_common::environment::{
+    get_env_var,
+    variables::{BOT_STORAGE_DIR, MATRIX_HOMESERVER_URL, MATRIX_PASS, MATRIX_USER},
+};
 use yarrbot_db::actions::matrix_room_actions::MatrixRoomActions;
 use yarrbot_db::models::MatrixRoom;
 use yarrbot_db::DbPool;
-
-const MATRIX_USER_ENV: &str = "YARRBOT_MATRIX_USERNAME";
-const MATRIX_PASS_ENV: &str = "YARRBOT_MATRIX_PASSWORD";
-const MATRIX_HOMESERVER_URL: &str = "YARRBOT_MATRIX_HOMESERVER_URL";
-const BOT_STORAGE_DIR: &str = "YARRBOT_STORAGE_DIR";
 
 /// Check if a given [user_id] is valid.
 pub fn is_user_id(user_id: &str) -> bool {
@@ -50,23 +48,23 @@ pub struct YarrbotMatrixClient {
 }
 
 fn get_homeserver_url() -> Result<Url> {
-    let raw = environment::get_env_var(MATRIX_HOMESERVER_URL)?;
+    let raw = get_env_var(MATRIX_HOMESERVER_URL)?;
     info!("Received homeserver URL: {}", &raw);
     Url::parse(&raw).with_context(|| "Parsing of homeserver URL failed.")
 }
 
 fn get_username() -> Result<String> {
-    environment::get_env_var(MATRIX_USER_ENV)
+    get_env_var(MATRIX_USER)
         .with_context(|| "Could not retrieve the Matrix username from the environment.")
 }
 
 fn get_password() -> Result<String> {
-    environment::get_env_var(MATRIX_PASS_ENV)
+    get_env_var(MATRIX_PASS)
         .with_context(|| "Could not retrieve the Matrix password from the environment.")
 }
 
 fn get_storage_dir() -> Result<PathBuf> {
-    let mut path = match environment::get_env_var(BOT_STORAGE_DIR) {
+    let mut path = match get_env_var(BOT_STORAGE_DIR) {
         Ok(s) => PathBuf::from(s),
         Err(_) => {
             info!("No storage directory specified, using the current directory instead.");

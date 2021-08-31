@@ -27,3 +27,7 @@ fn get_from_file(name: &str) -> Result<String> {
     let path = env::var(format!("{}_FILE", name))?;
     Ok(fs::read_to_string(path)?)
 }
+
+pub mod variables {
+    pub use crate::environment_variables::*;
+}

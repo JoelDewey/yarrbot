@@ -10,12 +10,10 @@ use dotenv::dotenv;
 use env_logger::{Builder, Env};
 use std::str::FromStr;
 use tokio::runtime::Handle;
-use yarrbot_common::environment;
+use yarrbot_common::environment::{get_env_var, variables::{WEB_PORT, LOG_FILTER}};
 use yarrbot_db::{initialize_pool, migrate};
 use yarrbot_matrix_client::initialize_matrix_client;
 use yarrbot_webhook_api::webhook_config;
-
-const PORT_ENV_VAR: &str = "YARRBOT_WEB_PORT";
 
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -25,7 +23,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
     // Set up logging framework, reading filter configuration from the environment variable
     // or defaulting to warning logs and above globally if the filter isn't specified.
-    let log_env = Env::new().filter_or("YARRBOT_LOG_FILTER", "warn");
+    let log_env = Env::new().filter_or(LOG_FILTER, "warn");
     Builder::from_env(log_env).init();
 
     info!("Initializing Yarrbot...");
@@ -71,7 +69,7 @@ async fn main() -> Result<(), anyhow::Error> {
 }
 
 fn get_port() -> Result<String> {
-    let value = match environment::get_env_var(PORT_ENV_VAR) {
+    let value = match get_env_var(WEB_PORT) {
         Ok(v) => v,
         Err(_) => String::from("8080"),
     };

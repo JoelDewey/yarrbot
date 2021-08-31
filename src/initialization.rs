@@ -1,11 +1,9 @@
 use anyhow::{ensure, Context, Result};
-use yarrbot_common::environment;
+use yarrbot_common::environment::{get_env_var, variables::FIRST_MATRIX_USER};
 use yarrbot_db::actions::user_actions::UserActions;
 use yarrbot_db::enums::UserRole;
 use yarrbot_db::models::{NewUser, User};
 use yarrbot_db::{DbPool, DbPoolConnection};
-
-const FIRST_USER_ENV: &str = "YARRBOT_INITIALIZATION_USER";
 
 pub fn first_time_initialization(pool: &DbPool) -> Result<()> {
     let conn = pool.get()?;
@@ -21,10 +19,10 @@ fn initialize_first_user(conn: &DbPoolConnection) -> Result<()> {
         return Ok(());
     }
 
-    let user_id_raw = environment::get_env_var(FIRST_USER_ENV).with_context(|| {
+    let user_id_raw = get_env_var(FIRST_MATRIX_USER).with_context(|| {
         format!(
             "Failed to retrieve a Matrix User ID from the {} environment variable.",
-            FIRST_USER_ENV
+            FIRST_MATRIX_USER
         )
     })?;
     ensure!(

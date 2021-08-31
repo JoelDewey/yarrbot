@@ -6,14 +6,15 @@ use diesel::{
     r2d2::{ConnectionManager, Pool},
     PgConnection,
 };
-use yarrbot_common::environment;
+use yarrbot_common::environment::{
+    get_env_var,
+    variables::{DB_POOL, DB_URL},
+};
 
-const DB_URL_ENV: &str = "YARRBOT_DATABASE_URL";
-const DB_POOL_ENV: &str = "YARRBOT_DATABASE_POOL_SIZE";
 const DB_POOL_DEFAULT: u32 = 20;
 
 pub fn build_pool() -> Result<DbPool> {
-    let database_url = get_database_url().context(format!("{} must be set.", DB_URL_ENV))?;
+    let database_url = get_database_url().context(format!("{} must be set.", DB_URL))?;
     let pool_size = get_pool_size();
 
     let manager = ConnectionManager::<PgConnection>::new(database_url);
@@ -22,22 +23,22 @@ pub fn build_pool() -> Result<DbPool> {
         .build(manager)
         .context(format!(
             "Failed to start the connection pool. Is {} correct?",
-            DB_URL_ENV
+            DB_URL
         ))?;
     Ok(pool)
 }
 
 fn get_database_url() -> Result<String> {
-    environment::get_env_var(DB_URL_ENV)
+    get_env_var(DB_URL)
 }
 
 fn get_pool_size() -> u32 {
-    match environment::get_env_var(DB_POOL_ENV) {
+    match get_env_var(DB_POOL) {
         Ok(size) => size.parse().unwrap_or(DB_POOL_DEFAULT),
         Err(_) => {
             info!(
                 "No value found for {}, using the default value {}.",
-                DB_POOL_ENV, DB_POOL_DEFAULT
+                DB_POOL, DB_POOL_DEFAULT
             );
             DB_POOL_DEFAULT
         }

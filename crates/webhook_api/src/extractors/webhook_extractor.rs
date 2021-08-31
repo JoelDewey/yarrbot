@@ -133,9 +133,6 @@ mod test {
 
     #[test]
     fn get_webhook_auth_returns_none_given_no_auth_header() {
-        // Arrange
-        let req = test::TestRequest::default().to_http_request();
-
         // Act
         let actual_wrapped = get_webhook_auth("");
 

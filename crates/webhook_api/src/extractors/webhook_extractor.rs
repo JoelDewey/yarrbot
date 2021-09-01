@@ -79,6 +79,7 @@ impl FromRequest for WebhookInfo {
                 Ok(u) => u,
                 _ => return Err(YarrbotApiError::not_found().into()),
             };
+            let uuid2 = uuid.clone();
 
             debug!("Getting webhook {} from the database.", &webhook_id);
             let optional_webhook = match block(move || Webhook::try_get(&conn, &uuid)).await {
@@ -86,14 +87,14 @@ impl FromRequest for WebhookInfo {
                 Err(e) => {
                     error!(
                         "Failed to retrieve webhook with ID \"{}\" from the database: {:?}",
-                        uuid, e
+                        uuid2, e
                     );
                     return Err(YarrbotApiError::internal_server_error().into());
                 }
                 Ok(Err(e)) => {
                     error!(
                         "Failed to retrieve webhook with ID \"{}\" from the database: {:?}",
-                        uuid, e
+                        uuid2, e
                     );
                     return Err(YarrbotApiError::internal_server_error().into());
                 }

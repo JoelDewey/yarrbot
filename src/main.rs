@@ -15,7 +15,7 @@ use yarrbot_common::environment::{
     get_env_var,
     variables::{LOG_FILTER, WEB_PORT},
 };
-use yarrbot_db::{initialize_pool, migrate};
+use yarrbot_db::{build_pool, migrate};
 use yarrbot_matrix_client::initialize_matrix_client;
 use yarrbot_webhook_api::webhook_config;
 
@@ -35,7 +35,7 @@ async fn main() -> Result<(), anyhow::Error> {
     initialize_cryptography()?;
 
     info!("Initializing database connection pool...");
-    let pool = initialize_pool()?;
+    let pool = build_pool()?;
     let connection = pool
         .get()
         .context("Could not retrieve a connection from the connection pool.")?;

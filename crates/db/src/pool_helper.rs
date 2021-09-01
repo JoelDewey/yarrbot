@@ -13,6 +13,9 @@ use yarrbot_common::environment::{
 
 const DB_POOL_DEFAULT: u32 = 20;
 
+/// Initializes a [DbPool] that manages [DbPoolConnection]s to the sqlite database.
+/// The YARRBOT_DATABASE_URL and YARRBOT_DATABASE_POOL_SIZE environment variables
+/// adjust the various properties of the database to connect to.
 pub fn build_pool() -> Result<DbPool> {
     let database_url = get_database_url().context(format!("{} must be set.", DB_URL))?;
     let pool_size = get_pool_size();

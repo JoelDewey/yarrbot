@@ -25,12 +25,7 @@ mod schema;
 pub type DbPool = Pool<ConnectionManager<PgConnection>>;
 pub type DbPoolConnection = PooledConnection<ConnectionManager<PgConnection>>;
 
-/// Initializes a [DbPool] that manages [DbPoolConnection]s to the sqlite database.
-/// The YARRBOT_DATABASE_URL and YARRBOT_DATABASE_POOL_SIZE environment variables
-/// adjust the various properties of the database to connect to.
-pub fn initialize_pool() -> Result<DbPool, anyhow::Error> {
-    build_pool()
-}
+pub use pool_helper::build_pool;
 
 /// Given some [DbPoolConnection], run the migrations embedded in Yarrbot on the
 /// database.

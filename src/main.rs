@@ -10,7 +10,11 @@ use dotenv::dotenv;
 use env_logger::{Builder, Env};
 use std::str::FromStr;
 use tokio::runtime::Handle;
-use yarrbot_common::environment::{get_env_var, variables::{WEB_PORT, LOG_FILTER}};
+use yarrbot_common::crypto::initialize_cryptography;
+use yarrbot_common::environment::{
+    get_env_var,
+    variables::{LOG_FILTER, WEB_PORT},
+};
 use yarrbot_db::{initialize_pool, migrate};
 use yarrbot_matrix_client::initialize_matrix_client;
 use yarrbot_webhook_api::webhook_config;
@@ -27,6 +31,8 @@ async fn main() -> Result<(), anyhow::Error> {
     Builder::from_env(log_env).init();
 
     info!("Initializing Yarrbot...");
+
+    initialize_cryptography()?;
 
     info!("Initializing database connection pool...");
     let pool = initialize_pool()?;

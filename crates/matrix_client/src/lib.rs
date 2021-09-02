@@ -7,6 +7,8 @@ extern crate log;
 
 use crate::message::MessageData;
 use anyhow::{bail, Context, Result};
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
 use itertools::Itertools;
 use matrix_sdk::{
     events::AnyMessageEventContent,
@@ -16,6 +18,7 @@ use matrix_sdk::{
 use std::convert::TryFrom;
 use std::env;
 use std::fs;
+use std::iter::FromIterator;
 use std::path::PathBuf;
 use tokio::task::spawn_blocking;
 use url::Url;
@@ -104,29 +107,29 @@ pub async fn initialize_matrix_client(pool: DbPool) -> Result<YarrbotMatrixClien
     Ok(YarrbotMatrixClient::new(settings, pool).await?)
 }
 
+async fn join_room(client: &Client, id: &str) -> Result<()> {
+    let room_id = RoomId::try_from(id)?;
+    match client.join_room_by_id(&room_id).await {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e).with_context(|| format!("Room ID: {}", id)),
+    }
+}
+
 impl YarrbotMatrixClient {
     async fn init(client: &Client, pool: &DbPool) -> Result<()> {
         let conn = pool.get()?;
         info!("Retrieving list of MatrixRooms from the database.");
         let matrix_rooms = spawn_blocking(move || MatrixRoom::get_many(&conn, None)).await??;
-        let db_rooms = matrix_rooms.iter().map(|r| &r.room_id[..]).unique();
-        for db_room in db_rooms {
-            let room_id = match RoomId::try_from(db_room) {
-                Ok(r) => r,
-                Err(_) => {
-                    error!("Unable to parse Matrix room Id {}.", db_room,);
-                    continue;
-                }
-            };
-            let join_result = client.join_room_by_id(&room_id).await;
-            if join_result.is_err() {
-                error!(
-                    "Unable to join room {}: {:?}",
-                    db_room,
-                    join_result.unwrap_err()
-                );
-            } else {
-                info!("Joined room: {}", db_room);
+        let db_rooms = matrix_rooms
+            .iter()
+            .map(|r| &r.room_id[..])
+            .unique()
+            .map(|room_id| join_room(client, room_id));
+        let mut futures_unordered = FuturesUnordered::from_iter(db_rooms);
+        while let Some(item) = futures_unordered.next().await {
+            match item {
+                Ok(_) => (),
+                Err(e) => error!("Unable to join room: {:?}", e),
             }
         }
 

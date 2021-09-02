@@ -6,7 +6,6 @@ extern crate diesel_migrations;
 extern crate diesel;
 #[macro_use]
 extern crate log;
-use crate::pool_helper::*;
 use diesel::r2d2::PooledConnection;
 use diesel::{
     r2d2::{ConnectionManager, Pool},

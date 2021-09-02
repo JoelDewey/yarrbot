@@ -24,30 +24,21 @@ use yarrbot_db::{actions::user_actions::UserActions, models::User};
 
 const YARRBOT_COMMAND: &str = "!yarrbot";
 
-async fn user_exists(pool: &DbPool, username: &str) -> Result<bool> {
-    let conn = pool.get()?;
-    let username2 = String::from(username);
-    let u = spawn_blocking(move || User::try_get_by_username(&conn, username2.as_str())).await??;
-    match u {
-        Some(u) => {
-            debug!("User \"{}\" exists with ID {}.", username, u.id.to_string());
-            Ok(true)
-        }
-        None => Ok(false),
-    }
-}
-
+/// Metadata to use when executing the command.
 pub struct CommandMetadata {
     pub user: String,
     pub is_direct_message: bool,
 }
 
+/// Parses commands and reacts to events from the Matrix homeserver.
 pub struct CommandParser {
     client: Client,
     pool: DbPool,
 }
 
 impl CommandParser {
+    /// Create a new [CommandParser]. It requires a Matrix [Client] and a
+    /// [DbPool] of connections to the database.
     pub fn new(client: Client, pool: DbPool) -> Self {
         Self { client, pool }
     }
@@ -169,10 +160,6 @@ impl EventHandler for CommandParser {
         }
 
         if let Room::Invited(room) = room {
-            // Synapse has a bug where the bot can receive an invite, but the server isn't ready
-            // for the bot to join the room.
-            // https://github.com/matrix-org/synapse/issues/4345
-
             // Don't let users that aren't admins invite the bot to rooms.
             let room_name = room
                 .display_name()
@@ -203,6 +190,9 @@ impl EventHandler for CommandParser {
                 }
             };
 
+            // Synapse has a bug where the bot can receive an invite, but the server isn't ready
+            // for the bot to join the room.
+            // https://github.com/matrix-org/synapse/issues/4345
             let mut last_error: Option<matrix_sdk::Error> = None;
             let mut rng: SmallRng = SmallRng::from_entropy();
             let dist = Uniform::new_inclusive(0, 1000);
@@ -236,5 +226,18 @@ impl EventHandler for CommandParser {
                 last_error.unwrap()
             );
         }
+    }
+}
+
+async fn user_exists(pool: &DbPool, username: &str) -> Result<bool> {
+    let conn = pool.get()?;
+    let username2 = String::from(username);
+    let u = spawn_blocking(move || User::try_get_by_username(&conn, username2.as_str())).await??;
+    match u {
+        Some(u) => {
+            debug!("User \"{}\" exists with ID {}.", username, u.id.to_string());
+            Ok(true)
+        }
+        None => Ok(false),
     }
 }

@@ -8,9 +8,11 @@ mod radarr_matrix_facade;
 mod sonarr_matrix_facade;
 
 use crate::models::common::ArrHealthCheckResult;
-use futures::future::join_all;
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
 pub use radarr_matrix_facade::handle_radarr_webhook;
 pub use sonarr_matrix_facade::handle_sonarr_webhook;
+use std::option::Option::Some;
 use uuid::Uuid;
 use yarrbot_db::actions::matrix_room_actions::MatrixRoomActions;
 use yarrbot_db::enums::ArrType;
@@ -31,11 +33,14 @@ async fn send_matrix_messages(
     let tasks = rooms
         .iter()
         .map(|r| client.send_message(message.clone(), r));
-    for t in join_all(tasks).await.iter().filter(|r| r.is_err()) {
-        error!(
-            "Encountered error while posting to matrix room: {:?}",
-            t.as_ref().unwrap_err()
-        );
+    let mut stream = tasks.collect::<FuturesUnordered<_>>();
+    while let Some(item) = stream.next().await {
+        if item.is_err() {
+            error!(
+                "Encountered error while posting to matrix room: {:?}",
+                item.unwrap_err()
+            );
+        }
     }
 
     Ok(())

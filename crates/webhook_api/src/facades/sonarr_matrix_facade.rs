@@ -74,8 +74,8 @@ fn add_episodes(builder: &mut MessageDataBuilder, episodes: &[SonarrEpisode]) {
     }
 
     for episode in episodes {
-        builder.add_key_value("Season", &episode.season_number.to_string());
-        builder.add_key_value("Episode", &episode.episode_number.to_string());
+        builder.add_key_value("Season", &format!("{:0>2}", &episode.season_number));
+        builder.add_key_value("Episode", &format!("{:0>2}", &episode.episode_number));
         builder.add_key_value("Title", &episode.title);
         if episode.air_date_utc.is_some() {
             let air = episode.air_date_utc.unwrap();

@@ -117,8 +117,8 @@ impl MessageDataBuilder {
     }
 
     /// Adds a heading to the message. For HTML messages, this will be some `<h1>` through `<h6>` element surrounded by
-    /// a `<div>` with a trailing horizontal rule `<hr>`. For plain messages, this will be some text prefixed with a
-    /// Markdown header character and two line breaks.
+    /// a `<div>` with a  `<br>`. For plain messages, this will be some text prefixed with a Markdown header character
+    /// and two line breaks.
     pub fn add_heading(&mut self, heading: &SectionHeadingLevel, text: &str) {
         let html_heading = match heading {
             SectionHeadingLevel::One => "h1",
@@ -130,7 +130,7 @@ impl MessageDataBuilder {
         };
         write!(
             self.html_parts,
-            "<div><{}><i>{}</i></{}></div><hr>",
+            "<div><{}><i>{}</i></{}></div><br>",
             html_heading, text, html_heading
         )
         .expect("Failed to write to underlying HTML String.");
@@ -253,7 +253,7 @@ mod tests {
     pub fn add_heading_inserts_expected() {
         // Arrange
         let expected_plain = "## Test 123 \n\n **1**: 2 \n";
-        let expected_html = "<div><h2><i>Test 123</i></h2></div><hr><strong>1</strong>: 2 <br>";
+        let expected_html = "<div><h2><i>Test 123</i></h2></div><br><strong>1</strong>: 2 <br>";
         let mut builder = MessageDataBuilder::new();
         builder.add_heading(&SectionHeadingLevel::Two, "Test 123");
         builder.add_key_value("1", "2");

@@ -52,6 +52,8 @@ pub struct RadarrMovieFile {
     pub size: Option<u64>,
 }
 
+/// Represents the various webhooks that Radarr can send. The type of webhook is determined by
+/// the webhook's `eventType` property in the body.
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(tag = "eventType")]
 pub enum RadarrWebhook {

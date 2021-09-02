@@ -1,8 +1,11 @@
+//! Helper utilities for returning API errors to clients.
+
 use actix_web::http::StatusCode;
 use actix_web::{HttpResponse, ResponseError};
 use serde::Serialize;
 use std::fmt::{Display, Formatter};
 
+/// Represents an error to send back to clients (e.g. Sonarr or Radarr).
 #[derive(Debug, Serialize)]
 pub struct YarrbotApiError {
     pub status: u16,
@@ -20,6 +23,9 @@ impl ResponseError for YarrbotApiError {
 }
 
 impl YarrbotApiError {
+    /// Create a new instance of [YarrbotApiError] with a given [StatusCode].
+    /// Before creating a new [YarrbotApiError], check for dedicated methods
+    /// to return the appropriate status code.
     pub fn new(message: &str, status: StatusCode) -> Self {
         YarrbotApiError {
             message: String::from(message),

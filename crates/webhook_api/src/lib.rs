@@ -1,3 +1,5 @@
+//! Configuration and handling of webhook pushes from Sonarr/Radarr.
+
 #[macro_use]
 extern crate log;
 
@@ -117,6 +119,7 @@ async fn index(
     result
 }
 
+/// Configure the webhook API endpoints.
 pub fn webhook_config(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/webhook").service(

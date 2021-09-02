@@ -1,3 +1,6 @@
+//! Extract the webhook ID from the request, verifies that the credentials in the `Authorization` header are
+//! correct for the given webhook, then returns the webhook for use for a particular code path.
+
 use crate::yarrbot_api_error::YarrbotApiError;
 use actix_web::dev::Payload;
 use actix_web::web::{block, Data};
@@ -10,15 +13,18 @@ use yarrbot_db::actions::webhook_actions::WebhookActions;
 use yarrbot_db::models::Webhook;
 use yarrbot_db::DbPool;
 
+/// Wrapper struct for the final webhook model from the database.
 pub struct WebhookInfo {
     pub webhook: Webhook,
 }
 
+/// Represents the decoded username and password from the webhook.
 struct WebhookAuth {
     pub user: String,
     pub password: String,
 }
 
+/// Decode some `Authorization` header value that should be `Basic` authentication.
 fn get_webhook_auth(header: &str) -> Option<WebhookAuth> {
     let mut pieces = header.split_ascii_whitespace();
     let precursor = pieces.next().unwrap_or("");
@@ -40,6 +46,7 @@ fn get_webhook_auth(header: &str) -> Option<WebhookAuth> {
     })
 }
 
+/// Verify the username and password with what was stored in the database [Webhook].
 fn is_authorized_for_webhook(auth: WebhookAuth, webhook: &Webhook) -> bool {
     webhook.username == auth.user && verify(auth.password.as_str(), webhook.password.as_slice())
 }
@@ -59,13 +66,7 @@ impl FromRequest for WebhookInfo {
 
         debug!("Processing webhook request with ID {}.", &webhook_id);
         Box::pin(async move {
-            let conn = match pool.get_ref().get() {
-                Ok(c) => c,
-                Err(e) => {
-                    error!("Encountered an error while retrieving connection: {}", e);
-                    return Err(YarrbotApiError::internal_server_error().into());
-                }
-            };
+            // Get login information for the webhook.
             debug!(
                 "Attempting to retrieve login information for webhook {}.",
                 &webhook_id
@@ -74,6 +75,7 @@ impl FromRequest for WebhookInfo {
                 Some(a) => a,
                 _ => return Err(YarrbotApiError::unauthorized().into()),
             };
+            // Get the UUID for the webhook from the short ID.
             debug!("Converting webhook {} back into a UUID.", &webhook_id);
             let uuid = match Uuid::from_short_id(&webhook_id) {
                 Ok(u) => u,
@@ -81,7 +83,15 @@ impl FromRequest for WebhookInfo {
             };
             let uuid2 = uuid.clone();
 
+            // Retrieve the webhook from the database.
             debug!("Getting webhook {} from the database.", &webhook_id);
+            let conn = match pool.get_ref().get() {
+                Ok(c) => c,
+                Err(e) => {
+                    error!("Encountered an error while retrieving connection: {}", e);
+                    return Err(YarrbotApiError::internal_server_error().into());
+                }
+            };
             let optional_webhook = match block(move || Webhook::try_get(&conn, &uuid)).await {
                 Ok(Ok(w)) => w,
                 Err(e) => {
@@ -110,6 +120,7 @@ impl FromRequest for WebhookInfo {
                 }
             };
 
+            // Check if the user is authorized for the webhook and return it if so.
             if is_authorized_for_webhook(webhook_auth, &webhook) {
                 info!(
                     "Webhook {} ({}) retrieved and authorized.",

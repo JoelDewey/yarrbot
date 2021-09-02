@@ -124,6 +124,8 @@ pub struct SonarrRenamedEpisodeFile {
     pub previous_path: Option<String>,
 }
 
+/// Represents the various webhooks that Sonarr can send. The type of webhook is determined by
+/// the webhook's `eventType` property in the body.
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(tag = "eventType")]
 pub enum SonarrWebhook {

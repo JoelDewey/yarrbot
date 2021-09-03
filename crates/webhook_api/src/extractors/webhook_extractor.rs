@@ -47,8 +47,8 @@ fn get_webhook_auth(header: &str) -> Option<WebhookAuth> {
 }
 
 /// Verify the username and password with what was stored in the database [Webhook].
-fn is_authorized_for_webhook(auth: WebhookAuth, webhook: &Webhook) -> bool {
-    webhook.username == auth.user && verify(auth.password.as_str(), webhook.password.as_slice())
+async fn is_authorized_for_webhook(auth: WebhookAuth, webhook: &Webhook) -> bool {
+    webhook.username == auth.user && verify(auth.password, webhook.password.as_slice()).await
 }
 
 impl FromRequest for WebhookInfo {
@@ -121,7 +121,7 @@ impl FromRequest for WebhookInfo {
             };
 
             // Check if the user is authorized for the webhook and return it if so.
-            if is_authorized_for_webhook(webhook_auth, &webhook) {
+            if is_authorized_for_webhook(webhook_auth, &webhook).await {
                 info!(
                     "Webhook {} ({}) retrieved and authorized.",
                     &webhook_id, &webhook.id

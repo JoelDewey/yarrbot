@@ -144,7 +144,7 @@ async fn create_webhook(
     password: &str,
     user: &User,
 ) -> Result<Webhook> {
-    let hashed = hash(password)?;
+    let hashed = hash(String::from(password)).await?;
     let new_webhook = NewWebhook::new(arr_type, username, hashed.to_vec(), user);
     let conn = pool.get()?;
     Ok(spawn_blocking(move || Webhook::create_webhook(&conn, new_webhook)).await??)

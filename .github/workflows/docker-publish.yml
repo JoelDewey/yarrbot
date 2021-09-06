@@ -10,6 +10,8 @@ on:
     branches: [ main ]
     # Publish semver tags as releases.
     tags: [ 'v*.*.*' ]
+  pull_request:
+    branches: [ main ]
 
 env:
   # Use docker.io for Docker Hub if empty
@@ -19,9 +21,33 @@ env:
 
 
 jobs:
+  test:
+
+    runs-on: ubuntu-latest
+    container: rust:1.53.0
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install Build Dependencies
+        run: |
+          apt-get update
+          apt-get install -y cmake libpq-dev
+
+      - name: Build Project
+        run: cargo build --verbose
+
+      - name: Run Unit Tests
+        run: cargo test --verbose --lib --workspace --bin yarrbot
+
   build:
 
     runs-on: ubuntu-latest
+    needs:
+      - test
     permissions:
       contents: read
       packages: write

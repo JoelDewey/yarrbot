@@ -122,8 +122,8 @@ mod tests {
     #[test]
     pub fn add_unordered_list_returns_list() {
         // Arrange
-        let expected_plain = "1, 2, 3 | 1: 2";
-        let expected_html = "<ul><li><code>1</code></li><li><code>2</code></li><li><code>3</code></li></ul> <br><strong>1</strong>: 2";
+        let expected_plain = "1, 2, 3 \n **1**: 2 \n";
+        let expected_html = "<ul><li><code>1</code></li><li><code>2</code></li><li><code>3</code></li></ul> <br><strong>1</strong>: 2 <br>";
         let items: Vec<String> = (1..4).map(|i| i.to_string()).collect();
         let mut builder = MessageDataBuilder::new();
         builder.add_matrix_message_part(WebhookList { items });

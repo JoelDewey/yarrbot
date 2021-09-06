@@ -141,7 +141,6 @@ impl FromRequest for WebhookInfo {
 #[cfg(test)]
 mod test {
     use super::*;
-    use actix_web::test;
 
     #[test]
     fn get_webhook_auth_returns_none_given_no_auth_header() {

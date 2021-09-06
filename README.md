@@ -7,6 +7,9 @@ learning the Rust programming language.
 Yarrbot is beta software and comes with all of the risks associated with using beta software. Please read through the
 [LICENSE.txt](LICENSE.txt) before using.
 
+The container examples in this README use [Podman](https://podman.io/) instead of Docker; if one would rather use Docker,
+then for the most part simply substituting `podman` for `docker` in the command should be sufficient.
+
 ## Features
 
 * Web API endpoint compatible with Sonarr/Radarr webhook requests; supports either `POST` or `PUT` requests.
@@ -26,8 +29,8 @@ Yarrbot is beta software and comes with all of the risks associated with using b
 
 ## Setup
 
-Yarrbot runs on Linux and requires a Postgresql database to store some of its configuration information. Postgresql 13
-or greater is supported. There is no support for Sqlite in Yarrbot at this time.
+Yarrbot runs on Linux and requires a PostgreSQL database to store some of its configuration information. PostgreSQL 13
+or greater is supported. There is no support for SQLite in Yarrbot at this time.
 
 Yarrbot was designed to run on the same system as the Sonarr/Radarr instances. However, if this is not possible, then 
 one _must_ put Yarrbot's web API behind a reverse proxy (e.g. Nginx) with a valid SSL certificate in place. Sonarr and 
@@ -35,30 +38,7 @@ Radarr authenticate with Yarrbot's web API via basic authentication and any fail
 result in those credentials being submitted to Yarrbot in plain text. 
 
 In short, this means that without HTTPS, a bad actor can steal the webhook credentials and then submit data to Yarrbot 
-to spam you with useless notifications. 
-
-### Build
-
-Yarrbot currently isn't built and distributed through any public CI/CD system. To use Yarrbot, one must build Yarrbot 
-themselves.
-
-A Dockerfile is provided to build a release version of Yarrbot as a container image:
-
-```
-podman build -t=yarrbot:0.1.0 .
-```
-
-If one would rather run Yarrbot on bare metal, please make sure that your build machine has the following:
-
-* Rust 1.53 or newer (older versions of Rust would probably work, but aren't tested)
-* `cmake` 
-* Postgresql development library (`libpq-dev`)
-
-It can then be built with the following command:
-
-```
-cargo build --release
-```
+to spam you with useless notifications.
 
 ### Run
 
@@ -81,7 +61,7 @@ podman run -d \
     -e YARRBOT_MATRIX_HOMESERVER_URL=https://matrix.example.org \
     -e YARRBOT_INITIALIZATION_USER=@you:example.org \
     --restart=always \
-    localhost/yarrbot:0.1.0
+    ghcr.io/joeldewey/yarrbot:latest
 ```
 
 #### Bare Metal
@@ -93,6 +73,9 @@ Please install the following dependencies before running Yarrbot for the first t
 
 * The Postgresql library (`libpq`)
 * OpenSSL
+
+No automated builds for generating an artifact of Yarrbot for bare metal installations are set up at this time. Therefore,
+one will have to build Yarrbot themselves (see the [Build](README.md#Build) section) for this. 
 
 #### Environment Variables
 
@@ -160,3 +143,26 @@ To set up either Sonarr or Radarr with Yarrbot:
     message to Yarrbot who will then relay that to your Matrix room of choice.
 
 One may set up as many webhooks as they would like via this process.
+
+# Build
+
+If one would like to build Yarrbot themselves, then there are two options: building from the Dockerfile or building 
+on bare metal.
+
+A Dockerfile is provided to build a release version of Yarrbot as a container image:
+
+```
+podman build -t=yarrbot:0.1.0 .
+```
+
+If one would rather build Yarrbot on bare metal, please make sure that your build machine has the following:
+
+* Rust 1.53 or newer (older versions of Rust would probably work, but aren't tested)
+* `cmake`
+* Postgresql development library (`libpq-dev`)
+
+It can then be built with the following command:
+
+```
+cargo build --release
+```

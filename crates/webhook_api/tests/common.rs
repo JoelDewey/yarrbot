@@ -2,12 +2,12 @@ extern crate dotenv;
 
 use lazy_static::{initialize, lazy_static};
 use std::sync::Once;
-use yarrbot_db::{initialize_pool, DbPool};
+use yarrbot_db::{build_pool, DbPool};
 
 static INIT: Once = Once::new();
 
 lazy_static! {
-    pub static ref POOL: DbPool = initialize_pool().unwrap();
+    pub static ref POOL: DbPool = build_pool().unwrap();
 }
 
 // testuser:myP@ssw0rd123

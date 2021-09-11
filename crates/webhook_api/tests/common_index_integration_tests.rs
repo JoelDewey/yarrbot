@@ -19,7 +19,7 @@ const TEST_BODY: &str = "{
         \"title\": \"Test Title\",
         \"path\": \"C:\\\\testpath\",
         \"tvdbId\": 1234,
-        \"type\": \"Standard\"
+        \"type\": \"standard\"
     },
     \"episodes\": [
         {

@@ -3301,6 +3301,7 @@ dependencies = [
  "env_logger",
  "log",
  "tokio",
+ "url",
  "yarrbot_common",
  "yarrbot_db",
  "yarrbot_matrix_client",
@@ -3337,6 +3338,7 @@ name = "yarrbot_matrix_client"
 version = "0.1.1"
 dependencies = [
  "anyhow",
+ "async-trait",
  "futures",
  "itertools",
  "log",

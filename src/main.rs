@@ -1,9 +1,11 @@
-mod initialization;
+mod first_time_initialization;
+mod matrix_initialization;
 
 extern crate dotenv;
 #[macro_use]
 extern crate log;
 
+use crate::matrix_initialization::initialize_matrix_client;
 use actix_web::middleware::Logger;
 use anyhow::{Context, Result};
 use dotenv::dotenv;
@@ -16,8 +18,8 @@ use yarrbot_common::environment::{
     variables::{LOG_FILTER, WEB_PORT},
 };
 use yarrbot_db::{build_pool, migrate};
-use yarrbot_matrix_client::initialize_matrix_client;
 use yarrbot_webhook_api::webhook_config;
+use yarrbot_matrix_client::YarrbotMatrixClient;
 
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -43,7 +45,7 @@ async fn main() -> Result<(), anyhow::Error> {
     migrate(connection)?;
 
     info!("Running any first-time setup functions...");
-    initialization::first_time_initialization(&pool)?;
+    first_time_initialization::first_time_initialization(&pool)?;
 
     info!("Starting up the connection to the Matrix server...");
     let matrix_client = initialize_matrix_client(pool.clone()).await?;
@@ -62,7 +64,7 @@ async fn main() -> Result<(), anyhow::Error> {
             .wrap(Logger::default())
             .app_data(web::Data::new(pool.clone()))
             .app_data(web::Data::new(matrix_client.clone()))
-            .service(web::scope("/api/v1").configure(webhook_config))
+            .service(web::scope("/api/v1").configure(webhook_config::<YarrbotMatrixClient>))
     })
     .bind(format!("127.0.0.1:{}", get_port()?))?
     .run();

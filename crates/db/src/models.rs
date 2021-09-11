@@ -6,7 +6,7 @@ use diesel::Queryable;
 use uuid::Uuid;
 
 /// Some chat room user that can manage [Webhook] endpoints for an [ArrType] to push to.
-#[derive(Queryable, Identifiable, Debug)]
+#[derive(Queryable, Identifiable, Debug, Clone)]
 #[table_name = "users"]
 pub struct User {
     pub id: Uuid,
@@ -53,7 +53,7 @@ impl From<NewUser> for User {
 }
 
 /// A definition of a webhook endpoint URL for an [ArrType] to push messages to.
-#[derive(Queryable, Identifiable, Associations)]
+#[derive(Queryable, Identifiable, Associations, Clone)]
 #[belongs_to(User)]
 #[table_name = "webhooks"]
 pub struct Webhook {
@@ -117,7 +117,7 @@ impl From<NewWebhook> for Webhook {
 
 /// A definition of a room on Yarrbot's homeserver to post messages received from
 /// a [Webhook] to.
-#[derive(Queryable, Identifiable, Associations)]
+#[derive(Queryable, Identifiable, Associations, Clone)]
 #[belongs_to(Webhook)]
 #[table_name = "matrix_rooms"]
 pub struct MatrixRoom {

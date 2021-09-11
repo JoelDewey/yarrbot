@@ -23,7 +23,13 @@ impl MessageData {
 
 impl From<MessageData> for MessageEventContent {
     fn from(message_data: MessageData) -> Self {
-        MessageEventContent::text_html(message_data.plain, message_data.html)
+        MessageEventContent::notice_html(message_data.plain, message_data.html)
+    }
+}
+
+impl From<&MessageData> for MessageEventContent {
+    fn from(message_data: &MessageData) -> Self {
+        MessageEventContent::notice_html(message_data.plain.as_str(), message_data.html.as_str())
     }
 }
 

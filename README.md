@@ -1,11 +1,19 @@
 # Yarrbot
 
 A simple Matrix bot that listens for webhook notifications from [Sonarr](https://github.com/Sonarr/Sonarr) or [Radarr](https://github.com/Radarr/Radarr) 
-and relays those notifications to one or more Matrix rooms. This is a simple project being used by the author to start 
-learning the Rust programming language.
+and relays those notifications to one or more Matrix rooms. Sonarr and Radarr webhooks can be used in conjunction with 
+this Matrix bot to send notifications when Sonarr or Radarr:
 
-Yarrbot is beta software and comes with all of the risks associated with using beta software. Please read through the
-[LICENSE.txt](LICENSE.txt) before using.
+* Sees that a show/movie is available for download;
+* Has downloaded and imported some show/movie;
+* Has upgraded an existing show/movie to a better quality;
+* Has renamed a show/movie;
+* When a series, movie, or episode file has been deleted;
+* When a health check has failed.
+
+This is a simple project being used by the author to start learning the Rust programming language. Yarrbot is beta 
+software and comes with all of the risks associated with using beta software. Please read through the [LICENSE.txt](LICENSE.txt) 
+before using.
 
 The container examples in this README use [Podman](https://podman.io/) instead of Docker; if one would rather use Docker,
 then for the most part simply substituting `podman` for `docker` in the command should be sufficient.
@@ -115,11 +123,12 @@ After Yarrbot starts up successfully for the first time, it will be configured t
 user specified in the `YARRBOT_INITIALIZATION_USER` environment variable. Yarrbot responds to the following commands:
 
 * `!yarrbot ping`: Testing command to which Yarrbot will reply with `pong`.
-* `!yarrbot webhook add sonarr|radarr roomOrAliasId username [password]`: Add a new webhook for either Sonarr or 
-  Radarr for the given Room ID or Room Alias ID with a username. Optionally supports providing a password; if the 
-  password isn't provided, then Yarrbot will generate one. 
+* `!yarrbot webhook add sonarr roomOrAliasId username [password]`: Add a new webhook for either Sonarr or Radarr 
+  (replacing `sonarr` with `radarr`) for the given Room ID or Room Alias ID with a username. Optionally supports  
+  providing a password; if the password isn't provided, then Yarrbot will generate one. 
 * `!yarrbot webhook list`: List the webhooks in the system.
-* `!yarrbot webhook remove webhookId`: Removes a webhook by its ID, provided by the `webhook list` or `webhook add` commands.
+* `!yarrbot webhook remove webhookId`: Removes a webhook by its ID, provided by the `webhook list` or `webhook add` 
+  commands.
 
 To set up either Sonarr or Radarr with Yarrbot:
 

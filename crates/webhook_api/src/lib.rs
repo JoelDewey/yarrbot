@@ -40,7 +40,7 @@ pub fn webhook_config<T: MatrixClient + Send + Sync + 'static + Clone>(
     );
 }
 
-fn parse_body<'de, T>(body: &'de web::BytesMut) -> Result<T>
+fn deserialize_body<'de, T>(body: &'de web::BytesMut) -> Result<T>
 where
     T: Deserialize<'de>,
 {
@@ -81,14 +81,14 @@ async fn index<T: MatrixClient>(
 
     let webhook = webhook_info.webhook;
     let message_result = match webhook.arr_type {
-        ArrType::Sonarr => match parse_body::<SonarrWebhook>(&body) {
+        ArrType::Sonarr => match deserialize_body::<SonarrWebhook>(&body) {
             Ok(w) => handle_sonarr_webhook(&w).await,
             Err(e) => {
                 debug!("Encountered error while parsing webhook: {:?}", e);
                 return Ok(HttpResponse::BadRequest().finish());
             }
         },
-        ArrType::Radarr => match parse_body::<RadarrWebhook>(&body) {
+        ArrType::Radarr => match deserialize_body::<RadarrWebhook>(&body) {
             Ok(w) => handle_radarr_webhook(&w).await,
             Err(e) => {
                 debug!("Encountered error while parsing webhook: {:?}", e);

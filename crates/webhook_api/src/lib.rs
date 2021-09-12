@@ -21,8 +21,24 @@ mod extractors;
 mod facades;
 mod models;
 mod yarrbot_api_error;
+mod yarrbot_root_span;
 
 const MAX_SIZE: usize = 262_144; // Limit max payload size to 256k.
+
+pub use yarrbot_root_span::YarrbotRootSpan;
+
+/// Configure the webhook API endpoints.
+pub fn webhook_config<T: MatrixClient + Send + Sync + 'static + Clone>(
+    cfg: &mut web::ServiceConfig,
+) {
+    cfg.service(
+        web::scope("/webhook").service(
+            web::resource("/{webhook_id}")
+                .route(web::post().to(index::<T>))
+                .route(web::put().to(index::<T>)),
+        ),
+    );
+}
 
 fn parse_body<'de, T>(body: &'de web::BytesMut) -> Result<T>
 where
@@ -109,17 +125,4 @@ async fn index<T: MatrixClient>(
             Ok(HttpResponse::InternalServerError().finish())
         }
     }
-}
-
-/// Configure the webhook API endpoints.
-pub fn webhook_config<T: MatrixClient + Send + Sync + 'static + Clone>(
-    cfg: &mut web::ServiceConfig,
-) {
-    cfg.service(
-        web::scope("/webhook").service(
-            web::resource("/{webhook_id}")
-                .route(web::post().to(index::<T>))
-                .route(web::put().to(index::<T>)),
-        ),
-    );
 }

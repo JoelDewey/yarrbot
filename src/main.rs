@@ -1,6 +1,5 @@
 mod first_time_initialization;
 mod matrix_initialization;
-mod yarrbot_root_span;
 
 extern crate dotenv;
 
@@ -18,13 +17,12 @@ use yarrbot_common::environment::{
 };
 use yarrbot_db::{build_pool, migrate};
 use yarrbot_matrix_client::YarrbotMatrixClient;
-use yarrbot_webhook_api::webhook_config;
+use yarrbot_webhook_api::{webhook_config, YarrbotRootSpan};
 use tracing_log::LogTracer;
 use tracing_subscriber::{EnvFilter, Registry};
 use tracing::level_filters::LevelFilter;
 use tracing_actix_web::TracingLogger;
 use tracing_subscriber::layer::SubscriberExt;
-use crate::yarrbot_root_span::YarrbotRootSpan;
 
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {

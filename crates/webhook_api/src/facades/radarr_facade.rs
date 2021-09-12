@@ -1,24 +1,16 @@
-//! Handles Radarr-Matrix interactions.
+//! Processes a [RadarrWebhook] into a [MessageData] to send to Matrix.
 
-use crate::facades::{add_heading, add_quality, on_health_check, send_matrix_messages};
+use crate::facades::{add_heading, add_quality, on_health_check};
 use crate::models::radarr::{
     RadarrMovie, RadarrMovieFile, RadarrRelease, RadarrRemoteMovie, RadarrWebhook,
 };
-use actix_web::HttpResponse;
 use anyhow::Result;
-use yarrbot_db::models::Webhook;
-use yarrbot_db::DbPool;
+use yarrbot_db::enums::ArrType;
 use yarrbot_matrix_client::message::{MessageData, MessageDataBuilder};
-use yarrbot_matrix_client::YarrbotMatrixClient;
 
-/// Process webhook data pushed from Radarr. This method will post messages to the rooms configured for
-/// the webhook database record. The interaction differs based on the type of [RadarrWebhook] provided.
-pub async fn handle_radarr_webhook(
-    webhook: &Webhook,
-    data: &RadarrWebhook,
-    pool: &DbPool,
-    matrix_client: &YarrbotMatrixClient,
-) -> Result<HttpResponse> {
+/// Process webhook data pushed from Radarr. The interaction differs based on the type of [RadarrWebhook] provided.
+pub async fn handle_radarr_webhook(data: &RadarrWebhook) -> Result<MessageData> {
+    debug!("Processing Radarr webhook.");
     let message = match data {
         RadarrWebhook::Test {
             movie,
@@ -53,19 +45,10 @@ pub async fn handle_radarr_webhook(
             message,
             health_type,
             wiki_url,
-        } => on_health_check(&webhook.arr_type, level, message, health_type, wiki_url),
+        } => on_health_check(&ArrType::Radarr, level, message, health_type, wiki_url),
     };
 
-    match send_matrix_messages(pool, &webhook.id, matrix_client, &message).await {
-        Ok(_) => Ok(HttpResponse::Ok().finish()),
-        Err(e) => {
-            error!(
-                "Encountered error while sending Radarr webhook Matrix messages: {:?}",
-                e
-            );
-            Ok(HttpResponse::InternalServerError().finish())
-        }
-    }
+    Ok(message)
 }
 
 fn format_title_with_remote(remote_movie: &RadarrRemoteMovie) -> String {

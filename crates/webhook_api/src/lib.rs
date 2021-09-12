@@ -3,91 +3,46 @@
 #[macro_use]
 extern crate log;
 
-use crate::facades::{handle_radarr_webhook, handle_sonarr_webhook};
+use crate::facades::{handle_radarr_webhook, handle_sonarr_webhook, send_matrix_messages};
 use crate::models::radarr::RadarrWebhook;
 use crate::models::sonarr::SonarrWebhook;
 use crate::yarrbot_api_error::YarrbotApiError;
 use actix_web::{web, Error, HttpResponse};
+use anyhow::{Context, Result};
 use extractors::webhook_extractor::WebhookInfo;
 use futures_util::StreamExt;
 use log::Level::Debug;
+use serde::Deserialize;
 use std::str;
 use yarrbot_db::enums::ArrType;
-use yarrbot_db::models::Webhook;
 use yarrbot_db::DbPool;
-use yarrbot_matrix_client::YarrbotMatrixClient;
+use yarrbot_matrix_client::MatrixClient;
 
 mod extractors;
 mod facades;
 mod models;
 mod yarrbot_api_error;
 
-async fn handle_sonarr(
-    webhook: &Webhook,
-    body: &web::BytesMut,
-    client: &YarrbotMatrixClient,
-    pool: &DbPool,
-) -> Result<HttpResponse, Error> {
-    let parsed = serde_json::from_slice::<SonarrWebhook>(body);
-    let data = match parsed {
-        Ok(w) => w,
-        Err(e) => {
-            error!(
-                "Encountered an error while parsing Sonarr webhook request body: {:?}",
-                e
-            );
-            if log_enabled!(Debug) {
-                let str_body = str::from_utf8(body).unwrap_or("Could not convert body to string.");
-                debug!("Request Body: {}", str_body);
-            }
-            return Err(YarrbotApiError::bad_request("Unable to parse request body.").into());
-        }
-    };
-    match handle_sonarr_webhook(webhook, &data, pool, client).await {
-        Ok(r) => Ok(r),
-        Err(e) => {
-            error!("Encountered error while handling Sonarr webhook: {:?}", e);
-            Ok(HttpResponse::InternalServerError().finish())
-        }
-    }
-}
-
-async fn handle_radarr(
-    webhook: &Webhook,
-    body: &web::BytesMut,
-    client: &YarrbotMatrixClient,
-    pool: &DbPool,
-) -> Result<HttpResponse, Error> {
-    let parsed = serde_json::from_slice::<RadarrWebhook>(body);
-    let data = match parsed {
-        Ok(w) => w,
-        Err(e) => {
-            error!(
-                "Encountered an error while parsing Radarr webhook request body: {:?}",
-                e
-            );
-            if log_enabled!(Debug) {
-                let str_body = str::from_utf8(body).unwrap_or("Could not convert body to string.");
-                debug!("Request Body: {}", str_body);
-            }
-            return Err(YarrbotApiError::bad_request("Unable to parse request body.").into());
-        }
-    };
-    match handle_radarr_webhook(webhook, &data, pool, client).await {
-        Ok(r) => Ok(r),
-        Err(e) => {
-            error!("Encountered error while handling Radarr webhook: {:?}", e);
-            Ok(HttpResponse::InternalServerError().finish())
-        }
-    }
-}
-
 const MAX_SIZE: usize = 262_144; // Limit max payload size to 256k.
 
-async fn index(
+fn parse_body<'de, T>(body: &'de web::BytesMut) -> Result<T>
+where
+    T: Deserialize<'de>,
+{
+    serde_json::from_slice::<T>(body).with_context(|| {
+        if log_enabled!(Debug) {
+            let str_body = str::from_utf8(body).unwrap_or("Could not convert body to string.");
+            debug!("Request body: {}", str_body)
+        }
+
+        "Encountered an error while parsing webhook request body."
+    })
+}
+
+async fn index<T: MatrixClient>(
     webhook_info: WebhookInfo,
     pool: web::Data<DbPool>,
-    matrix_client: web::Data<YarrbotMatrixClient>,
+    matrix_client: web::Data<T>,
     mut payload: web::Payload,
 ) -> Result<HttpResponse, Error> {
     // Essentially copied from: https://actix.rs/docs/request/
@@ -105,27 +60,61 @@ async fn index(
     }
 
     let webhook = webhook_info.webhook;
-    let result = match webhook.arr_type {
-        ArrType::Sonarr => {
-            debug!("Starting processing of Sonarr webhook.");
-            handle_sonarr(&webhook, &body, &matrix_client, &pool).await
-        }
-        ArrType::Radarr => {
-            debug!("Starting processing of Radarr webhook.");
-            handle_radarr(&webhook, &body, &matrix_client, &pool).await
+    let message_result = match webhook.arr_type {
+        ArrType::Sonarr => match parse_body::<SonarrWebhook>(&body) {
+            Ok(w) => handle_sonarr_webhook(&w).await,
+            Err(e) => {
+                debug!("Encountered error while parsing webhook: {:?}", e);
+                return Ok(HttpResponse::BadRequest().finish());
+            }
+        },
+        ArrType::Radarr => match parse_body::<RadarrWebhook>(&body) {
+            Ok(w) => handle_radarr_webhook(&w).await,
+            Err(e) => {
+                debug!("Encountered error while parsing webhook: {:?}", e);
+                return Ok(HttpResponse::BadRequest().finish());
+            }
+        },
+    };
+    let message = match message_result {
+        Ok(m) => m,
+        Err(e) => {
+            error!(
+                "Failed to transform the webhook into a message to send to Matrix: {:?}",
+                e
+            );
+            return Ok(HttpResponse::InternalServerError().finish());
         }
     };
-    debug!("Finished processing webhook.");
-    result
+    debug!("Sending Matrix messages now.");
+    match send_matrix_messages(
+        pool.get_ref(),
+        &webhook.id,
+        matrix_client.get_ref(),
+        message,
+    )
+    .await
+    {
+        Ok(_) => Ok(HttpResponse::Ok().finish()),
+        Err(e) => {
+            error!(
+                "Encountered error while sending webhook Matrix messages: {:?}",
+                e
+            );
+            Ok(HttpResponse::InternalServerError().finish())
+        }
+    }
 }
 
 /// Configure the webhook API endpoints.
-pub fn webhook_config(cfg: &mut web::ServiceConfig) {
+pub fn webhook_config<T: MatrixClient + Send + Sync + 'static + Clone>(
+    cfg: &mut web::ServiceConfig,
+) {
     cfg.service(
         web::scope("/webhook").service(
             web::resource("/{webhook_id}")
-                .route(web::post().to(index))
-                .route(web::put().to(index)),
+                .route(web::post().to(index::<T>))
+                .route(web::put().to(index::<T>)),
         ),
     );
 }

@@ -1,5 +1,4 @@
-//! TODO: These tests need a YarrbotMatrixClient but I need to figure out how to get Synapse to run locally.
-
+use crate::common::SpyMatrixClient;
 use actix_web::http::header::ContentType;
 use actix_web::http::Method;
 use actix_web::http::StatusCode;
@@ -19,7 +18,7 @@ const TEST_BODY: &str = "{
         \"title\": \"Test Title\",
         \"path\": \"C:\\\\testpath\",
         \"tvdbId\": 1234,
-        \"type\": \"Standard\"
+        \"type\": \"standard\"
     },
     \"episodes\": [
         {
@@ -36,10 +35,12 @@ const TEST_BODY: &str = "{
 async fn index_post_returns_200_given_valid_info() {
     // Arrange
     common::setup();
+    let client = SpyMatrixClient::new();
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(common::POOL.clone()))
-            .service(web::scope("/api/v1").configure(webhook_config)),
+            .app_data(web::Data::new(client.clone()))
+            .service(web::scope("/api/v1").configure(webhook_config::<SpyMatrixClient>)),
     )
     .await;
     let req = test::TestRequest::default()
@@ -64,10 +65,12 @@ async fn index_post_returns_200_given_valid_info() {
 async fn index_returns_401_unauthorized_given_invalid_credentials() {
     // Arrange
     common::setup();
+    let client = SpyMatrixClient::new();
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(common::POOL.clone()))
-            .service(web::scope("/api/v1").configure(webhook_config)),
+            .app_data(web::Data::new(client.clone()))
+            .service(web::scope("/api/v1").configure(webhook_config::<SpyMatrixClient>)),
     )
     .await;
     // NotARealUser:badP@55
@@ -91,10 +94,12 @@ async fn index_returns_401_unauthorized_given_invalid_credentials() {
 async fn index_returns_404_not_found_given_short_id_not_uuid() {
     // Arrange
     common::setup();
+    let client = SpyMatrixClient::new();
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(common::POOL.clone()))
-            .service(web::scope("/api/v1").configure(webhook_config)),
+            .app_data(web::Data::new(client.clone()))
+            .service(web::scope("/api/v1").configure(webhook_config::<SpyMatrixClient>)),
     )
     .await;
     let req = test::TestRequest::default()
@@ -119,10 +124,12 @@ async fn index_returns_404_not_found_given_short_id_not_uuid() {
 async fn index_returns_404_not_found_given_valid_short_id_but_not_in_db() {
     // Arrange
     common::setup();
+    let client = SpyMatrixClient::new();
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(common::POOL.clone()))
-            .service(web::scope("/api/v1").configure(webhook_config)),
+            .app_data(web::Data::new(client.clone()))
+            .service(web::scope("/api/v1").configure(webhook_config::<SpyMatrixClient>)),
     )
     .await;
     let req = test::TestRequest::default()
@@ -148,10 +155,12 @@ async fn index_returns_404_not_found_given_valid_short_id_but_not_in_db() {
 async fn index_post_returns_400_given_invalid_request_body() {
     // Arrange
     common::setup();
+    let client = SpyMatrixClient::new();
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(common::POOL.clone()))
-            .service(web::scope("/api/v1").configure(webhook_config)),
+            .app_data(web::Data::new(client.clone()))
+            .service(web::scope("/api/v1").configure(webhook_config::<SpyMatrixClient>)),
     )
     .await;
     let req = test::TestRequest::default()

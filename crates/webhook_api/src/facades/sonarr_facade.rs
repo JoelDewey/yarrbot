@@ -1,26 +1,18 @@
 //! Handles Sonarr-Matrix interactions.
 
-use crate::facades::{add_heading, add_quality, on_health_check, send_matrix_messages};
+use crate::facades::{add_heading, add_quality, on_health_check};
 use crate::models::sonarr::{
     SonarrEpisode, SonarrEpisodeDeletedFile, SonarrEpisodeFile, SonarrRelease,
     SonarrRenamedEpisodeFile, SonarrSeries, SonarrWebhook,
 };
-use actix_web::HttpResponse;
 use anyhow::Result;
-use yarrbot_db::models::Webhook;
-use yarrbot_db::DbPool;
+use yarrbot_db::enums::ArrType;
 use yarrbot_matrix_client::message::{MatrixMessageDataPart, MessageData, MessageDataBuilder};
-use yarrbot_matrix_client::YarrbotMatrixClient;
 
-/// Process webhook data pushed from Sonarr. This method will post messages to the rooms configured for
-/// the webhook database record. The interaction differs based on the type of [SonarrWebhook] provided.
-pub async fn handle_sonarr_webhook(
-    webhook: &Webhook,
-    data: &SonarrWebhook,
-    pool: &DbPool,
-    matrix_client: &YarrbotMatrixClient,
-) -> Result<HttpResponse> {
-    let message: MessageData = match data {
+/// Process webhook data pushed from Sonarr. The interaction differs based on the type of [SonarrWebhook] provided.
+pub async fn handle_sonarr_webhook(data: &SonarrWebhook) -> Result<MessageData> {
+    debug!("Processing Sonarr webhook.");
+    let message = match data {
         SonarrWebhook::Test { series, episodes } => on_test(series, episodes),
         SonarrWebhook::Grab {
             series,
@@ -54,16 +46,10 @@ pub async fn handle_sonarr_webhook(
             message,
             health_type,
             wiki_url,
-        } => on_health_check(&webhook.arr_type, level, message, health_type, wiki_url),
+        } => on_health_check(&ArrType::Sonarr, level, message, health_type, wiki_url),
     };
 
-    match send_matrix_messages(pool, &webhook.id, matrix_client, &message).await {
-        Ok(_) => Ok(HttpResponse::Ok().finish()),
-        Err(e) => {
-            error!("Encountered error while sending Matrix messages: {:?}", e);
-            Ok(HttpResponse::InternalServerError().finish())
-        }
-    }
+    Ok(message)
 }
 
 fn add_episodes(builder: &mut MessageDataBuilder, episodes: &[SonarrEpisode]) {

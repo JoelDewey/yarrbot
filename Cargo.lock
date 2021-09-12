@@ -699,7 +699,6 @@ dependencies = [
  "diesel_derives",
  "pq-sys",
  "r2d2",
- "serde_json",
  "uuid",
 ]
 
@@ -1954,17 +1953,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pulldown-cmark"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffade02495f22453cd593159ea2f59827aae7f53fa8323f756799b670881dcf8"
-dependencies = [
- "bitflags",
- "memchr",
- "unicase",
-]
-
-[[package]]
 name = "qrcode"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2282,7 +2270,6 @@ checksum = "7da5f1472d60803e06744f83040a055948fd5bc1f4344d3e555ea378d0d6c96d"
 dependencies = [
  "indoc",
  "js_int",
- "pulldown-cmark",
  "ruma-common",
  "ruma-events-macros",
  "ruma-identifiers",
@@ -3034,15 +3021,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56dee185309b50d1f11bfedef0fe6d036842e3fb77413abef29f8f8d1c5d4c1c"
 
 [[package]]
-name = "unicase"
-version = "2.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "50f37be617794602aabbeee0be4f259dc1778fabe05e2d67ee8f79326d5cb4f6"
-dependencies = [
- "version_check",
-]
-
-[[package]]
 name = "unicode-bidi"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3293,7 +3271,7 @@ dependencies = [
 
 [[package]]
 name = "yarrbot"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "actix-web",
  "anyhow",
@@ -3301,6 +3279,7 @@ dependencies = [
  "env_logger",
  "log",
  "tokio",
+ "url",
  "yarrbot_common",
  "yarrbot_db",
  "yarrbot_matrix_client",
@@ -3309,7 +3288,7 @@ dependencies = [
 
 [[package]]
 name = "yarrbot_common"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "base64",
@@ -3320,23 +3299,23 @@ dependencies = [
 
 [[package]]
 name = "yarrbot_db"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "diesel",
  "diesel-derive-enum",
  "diesel_migrations",
  "log",
- "serde",
  "uuid",
  "yarrbot_common",
 ]
 
 [[package]]
 name = "yarrbot_matrix_client"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "futures",
  "itertools",
  "log",
@@ -3351,11 +3330,12 @@ dependencies = [
 
 [[package]]
 name = "yarrbot_webhook_api"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "actix-rt",
  "actix-web",
  "anyhow",
+ "async-trait",
  "base64",
  "chrono",
  "dotenv",
@@ -3366,6 +3346,7 @@ dependencies = [
  "log",
  "serde",
  "serde_json",
+ "tokio",
  "uuid",
  "yarrbot_common",
  "yarrbot_db",

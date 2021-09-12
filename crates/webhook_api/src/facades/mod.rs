@@ -4,14 +4,14 @@
 use actix_web::web::block;
 use anyhow::Result;
 
-mod radarr_matrix_facade;
-mod sonarr_matrix_facade;
+mod radarr_facade;
+mod sonarr_facade;
 
 use crate::models::common::ArrHealthCheckResult;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
-pub use radarr_matrix_facade::handle_radarr_webhook;
-pub use sonarr_matrix_facade::handle_sonarr_webhook;
+pub use radarr_facade::handle_radarr_webhook;
+pub use sonarr_facade::handle_sonarr_webhook;
 use std::option::Option::Some;
 use uuid::Uuid;
 use yarrbot_db::actions::matrix_room_actions::MatrixRoomActions;
@@ -19,20 +19,18 @@ use yarrbot_db::enums::ArrType;
 use yarrbot_db::models::MatrixRoom;
 use yarrbot_db::DbPool;
 use yarrbot_matrix_client::message::{MessageData, MessageDataBuilder, SectionHeadingLevel};
-use yarrbot_matrix_client::YarrbotMatrixClient;
+use yarrbot_matrix_client::MatrixClient;
 
-async fn send_matrix_messages(
+pub async fn send_matrix_messages<T: MatrixClient>(
     pool: &DbPool,
     webhook_id: &Uuid,
-    client: &YarrbotMatrixClient,
-    message: &MessageData,
+    client: &T,
+    message: MessageData,
 ) -> Result<()> {
     let conn = pool.get()?;
     let id = *webhook_id;
     let rooms = block(move || MatrixRoom::get_by_webhook_id(&conn, &id)).await??;
-    let tasks = rooms
-        .iter()
-        .map(|r| client.send_message(message.clone(), r));
+    let tasks = rooms.iter().map(|r| client.send_message(&message, r));
     let mut stream = tasks.collect::<FuturesUnordered<_>>();
     while let Some(item) = stream.next().await {
         if item.is_err() {
@@ -72,6 +70,7 @@ fn on_health_check(
         ArrType::Sonarr => "Sonarr",
         ArrType::Radarr => "Radarr",
     };
+    info!("Received Health Check webhook from {}.", arr);
 
     let mut builder = MessageDataBuilder::new();
     builder.add_heading(&SectionHeadingLevel::One, &format!("{} Health Check", arr));

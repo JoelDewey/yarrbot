@@ -17,6 +17,7 @@ use tracing::{debug, info, error};
 /// Wrapper struct for the final webhook model from the database.
 pub struct WebhookInfo {
     pub webhook: Webhook,
+    pub short_id: String,
 }
 
 /// Represents the decoded username and password from the webhook.
@@ -127,7 +128,7 @@ impl FromRequest for WebhookInfo {
                     "Webhook {} ({}) retrieved and authorized.",
                     &webhook_id, &webhook.id
                 );
-                Ok(WebhookInfo { webhook })
+                Ok(WebhookInfo { webhook, short_id: webhook_id })
             } else {
                 debug!(
                     "Current request is not authorized for webhook {}.",

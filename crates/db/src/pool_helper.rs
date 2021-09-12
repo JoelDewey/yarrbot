@@ -2,6 +2,7 @@
 
 use crate::DbPool;
 use anyhow::{Context, Result};
+use tracing::info;
 use diesel::{
     r2d2::{ConnectionManager, Pool},
     PgConnection,

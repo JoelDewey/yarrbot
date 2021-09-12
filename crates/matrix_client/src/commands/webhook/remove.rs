@@ -12,6 +12,7 @@ use yarrbot_db::actions::webhook_actions::WebhookActions;
 use yarrbot_db::enums::UserRole;
 use yarrbot_db::models::Webhook;
 use yarrbot_db::DbPool;
+use tracing::{debug, info, warn, error};
 
 /// Remove a webhook from the database.
 pub async fn handle_remove(

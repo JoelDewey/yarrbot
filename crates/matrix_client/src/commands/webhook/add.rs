@@ -16,6 +16,7 @@ use yarrbot_db::actions::webhook_actions::WebhookActions;
 use yarrbot_db::enums::ArrType;
 use yarrbot_db::models::{MatrixRoom, NewMatrixRoom, NewWebhook, User, Webhook};
 use yarrbot_db::DbPool;
+use tracing::{debug, info, warn, error};
 
 /// Add a new webhook.
 pub async fn handle_add(

@@ -1,12 +1,11 @@
 //! Services for reading webhook data from Sonarr/Radarr and sending it out
 //! via Matrix.
 
-use actix_web::web::block;
-use anyhow::Result;
-
 mod radarr_facade;
 mod sonarr_facade;
 
+use actix_web::web::block;
+use anyhow::Result;
 use crate::models::common::ArrHealthCheckResult;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
@@ -20,6 +19,7 @@ use yarrbot_db::models::MatrixRoom;
 use yarrbot_db::DbPool;
 use yarrbot_matrix_client::message::{MessageData, MessageDataBuilder, SectionHeadingLevel};
 use yarrbot_matrix_client::MatrixClient;
+use tracing::{info, warn, error};
 
 pub async fn send_matrix_messages<T: MatrixClient>(
     pool: &DbPool,
@@ -36,7 +36,7 @@ pub async fn send_matrix_messages<T: MatrixClient>(
         if item.is_err() {
             error!(
                 "Encountered error while posting to matrix room: {:?}",
-                item.unwrap_err()
+                item.as_ref().unwrap_err()
             );
         }
     }

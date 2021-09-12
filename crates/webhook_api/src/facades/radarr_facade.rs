@@ -7,6 +7,7 @@ use crate::models::radarr::{
 use anyhow::Result;
 use yarrbot_db::enums::ArrType;
 use yarrbot_matrix_client::message::{MessageData, MessageDataBuilder};
+use tracing::{debug, info};
 
 /// Process webhook data pushed from Radarr. The interaction differs based on the type of [RadarrWebhook] provided.
 pub async fn handle_radarr_webhook(data: &RadarrWebhook) -> Result<MessageData> {

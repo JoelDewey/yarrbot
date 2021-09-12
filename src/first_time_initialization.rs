@@ -4,6 +4,7 @@ use yarrbot_db::actions::user_actions::UserActions;
 use yarrbot_db::enums::UserRole;
 use yarrbot_db::models::{NewUser, User};
 use yarrbot_db::{DbPool, DbPoolConnection};
+use tracing::{debug, info};
 
 pub fn first_time_initialization(pool: &DbPool) -> Result<()> {
     let conn = pool.get()?;

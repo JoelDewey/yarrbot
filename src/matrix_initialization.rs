@@ -9,6 +9,7 @@ use yarrbot_common::environment::{
 };
 use yarrbot_db::DbPool;
 use yarrbot_matrix_client::{YarrbotMatrixClient, YarrbotMatrixClientSettings};
+use tracing::info;
 
 fn get_homeserver_url() -> Result<Url> {
     let raw = get_env_var(MATRIX_HOMESERVER_URL)?;

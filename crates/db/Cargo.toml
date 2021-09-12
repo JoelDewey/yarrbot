@@ -11,5 +11,6 @@ uuid = { version = "= 0.8.2", features = ["v4"] }
 diesel_migrations = "1.4.0"
 diesel-derive-enum = { version = "1", features = ["postgres"] }
 anyhow = "1.0.42"
-log = "0.4"
+tracing = "0.1"
+tracing-subscriber = "0.2"
 yarrbot_common = { path = "../common" }

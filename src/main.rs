@@ -2,14 +2,12 @@ mod first_time_initialization;
 mod matrix_initialization;
 
 extern crate dotenv;
-#[macro_use]
-extern crate log;
 
 use crate::matrix_initialization::initialize_matrix_client;
-use actix_web::middleware::Logger;
 use anyhow::{Context, Result};
 use dotenv::dotenv;
-use env_logger::{Builder, Env};
+use tracing::info;
+use tracing_subscriber;
 use std::str::FromStr;
 use tokio::runtime::Handle;
 use yarrbot_common::crypto::initialize_cryptography;
@@ -20,6 +18,9 @@ use yarrbot_common::environment::{
 use yarrbot_db::{build_pool, migrate};
 use yarrbot_matrix_client::YarrbotMatrixClient;
 use yarrbot_webhook_api::webhook_config;
+use tracing_subscriber::EnvFilter;
+use tracing::level_filters::LevelFilter;
+use tracing_actix_web::TracingLogger;
 
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -29,8 +30,10 @@ async fn main() -> Result<(), anyhow::Error> {
 
     // Set up logging framework, reading filter configuration from the environment variable
     // or defaulting to warning logs and above globally if the filter isn't specified.
-    let log_env = Env::new().filter_or(LOG_FILTER, "warn");
-    Builder::from_env(log_env).init();
+    let filter = EnvFilter::try_from_env(LOG_FILTER)
+        .unwrap_or_else(|_| EnvFilter::default())
+        .add_directive(LevelFilter::WARN.into());
+    tracing_subscriber::fmt().with_env_filter(filter).init();
 
     info!("Initializing Yarrbot...");
 
@@ -61,7 +64,7 @@ async fn main() -> Result<(), anyhow::Error> {
     info!("Staring up web server...");
     let http_server = HttpServer::new(move || {
         App::new()
-            .wrap(Logger::default())
+            .wrap(TracingLogger::default())
             .app_data(web::Data::new(pool.clone()))
             .app_data(web::Data::new(matrix_client.clone()))
             .service(web::scope("/api/v1").configure(webhook_config::<YarrbotMatrixClient>))

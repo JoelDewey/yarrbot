@@ -8,6 +8,7 @@ use crate::models::sonarr::{
 use anyhow::Result;
 use yarrbot_db::enums::ArrType;
 use yarrbot_matrix_client::message::{MatrixMessageDataPart, MessageData, MessageDataBuilder};
+use tracing::{debug, info};
 
 /// Process webhook data pushed from Sonarr. The interaction differs based on the type of [SonarrWebhook] provided.
 pub async fn handle_sonarr_webhook(data: &SonarrWebhook) -> Result<MessageData> {

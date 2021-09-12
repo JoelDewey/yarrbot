@@ -21,6 +21,7 @@ use url::Url;
 use yarrbot_db::actions::matrix_room_actions::MatrixRoomActions;
 use yarrbot_db::models::MatrixRoom;
 use yarrbot_db::DbPool;
+use tracing::{info, debug};
 
 /// Settings to configure a [YarrbotMatrixClient].
 pub struct YarrbotMatrixClientSettings {
@@ -48,10 +49,8 @@ impl YarrbotMatrixClient {
             .unique()
             .map(|room_id| join_room(client, room_id));
         let mut stream = join_room_tasks.collect::<FuturesUnordered<_>>();
-        while let Some(item) = stream.next().await {
-            if item.is_err() {
-                error!("Unable to join room: {:?}", item.unwrap_err());
-            }
+        while let Some(_item) = stream.next().await {
+            // TODO: Fix logging here.
         }
 
         Ok(())

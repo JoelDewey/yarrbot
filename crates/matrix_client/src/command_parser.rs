@@ -3,7 +3,7 @@
 use crate::commands::*;
 use crate::message::MessageData;
 use anyhow::Result;
-use log::Level::Debug;
+use tracing::{debug, info, warn, error, debug_span};
 use matrix_sdk::{
     room::Room,
     ruma::events::{
@@ -50,14 +50,15 @@ impl CommandParser {
             return;
         }
 
-        if log_enabled!(Debug) {
+        let span = debug_span!("Message Received");
+        span.in_scope(|| {
             debug!(
                 "Received message from {} in room {} ({}).",
                 event.sender.as_str(),
                 room.name().unwrap_or_else(|| String::from("(No Name)")),
                 room.room_id().as_str()
             );
-        }
+        });
 
         // Based off of: https://github.com/matrix-org/matrix-rust-sdk/blob/0.3.0/matrix_sdk/examples/command_bot.rs
         if let Room::Joined(room) = room {
@@ -198,7 +199,7 @@ impl CommandParser {
                 "Failed to join room \"{}\" ({}) after five attempts; last error encountered: {:?}",
                 room_id,
                 &room_name,
-                last_error.unwrap()
+                last_error.as_ref().unwrap()
             );
         }
     }

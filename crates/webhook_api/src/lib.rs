@@ -1,8 +1,5 @@
 //! Configuration and handling of webhook pushes from Sonarr/Radarr.
 
-#[macro_use]
-extern crate log;
-
 use crate::facades::{handle_radarr_webhook, handle_sonarr_webhook, send_matrix_messages};
 use crate::models::radarr::RadarrWebhook;
 use crate::models::sonarr::SonarrWebhook;
@@ -11,7 +8,7 @@ use actix_web::{web, Error, HttpResponse};
 use anyhow::{Context, Result};
 use extractors::webhook_extractor::WebhookInfo;
 use futures_util::StreamExt;
-use log::Level::Debug;
+use tracing::{debug, error, debug_span};
 use serde::Deserialize;
 use std::str;
 use yarrbot_db::enums::ArrType;
@@ -30,10 +27,11 @@ where
     T: Deserialize<'de>,
 {
     serde_json::from_slice::<T>(body).with_context(|| {
-        if log_enabled!(Debug) {
+        let span = debug_span!("Parsing Request Body");
+        span.in_scope(|| {
             let str_body = str::from_utf8(body).unwrap_or("Could not convert body to string.");
             debug!("Request body: {}", str_body)
-        }
+        });
 
         "Encountered an error while parsing webhook request body."
     })

@@ -18,9 +18,11 @@ use yarrbot_common::environment::{
 use yarrbot_db::{build_pool, migrate};
 use yarrbot_matrix_client::YarrbotMatrixClient;
 use yarrbot_webhook_api::webhook_config;
-use tracing_subscriber::EnvFilter;
+use tracing_log::LogTracer;
+use tracing_subscriber::{EnvFilter, Registry};
 use tracing::level_filters::LevelFilter;
 use tracing_actix_web::TracingLogger;
+use tracing_subscriber::layer::SubscriberExt;
 
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -30,10 +32,15 @@ async fn main() -> Result<(), anyhow::Error> {
 
     // Set up logging framework, reading filter configuration from the environment variable
     // or defaulting to warning logs and above globally if the filter isn't specified.
+    LogTracer::init().expect("Could not initialize the LogTracer.");
     let filter = EnvFilter::try_from_env(LOG_FILTER)
         .unwrap_or_else(|_| EnvFilter::default())
         .add_directive(LevelFilter::WARN.into());
-    tracing_subscriber::fmt().with_env_filter(filter).init();
+    let (non_blocking_writer, _guard) = tracing_appender::non_blocking(std::io::stdout());
+    let subscriber = Registry::default()
+        .with(filter)
+        .with(tracing_subscriber::fmt::Layer::default().with_writer(non_blocking_writer));
+    tracing::subscriber::set_global_default(subscriber).expect("Could not set global subscriber for tracing.");
 
     info!("Initializing Yarrbot...");
 

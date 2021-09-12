@@ -64,7 +64,6 @@ async fn index<T: MatrixClient>(
 ) -> Result<HttpResponse, Error> {
     root_span.record("webhook_arr_type", &webhook_info.webhook.arr_type.as_ref());
     root_span.record("webhook_short_id", &webhook_info.short_id.as_str());
-    root_span.record("webhook_id", &webhook_info.webhook.id.to_string().as_str());
 
     // Essentially copied from: https://actix.rs/docs/request/
     let mut body = web::BytesMut::new();

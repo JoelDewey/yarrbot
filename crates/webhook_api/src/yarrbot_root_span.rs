@@ -13,7 +13,6 @@ impl RootSpanBuilder for YarrbotRootSpan {
             request,
             webhook_arr_type = Empty,
             webhook_short_id = Empty,
-            webhook_id = Empty
         )
     }
 

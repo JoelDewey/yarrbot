@@ -1,21 +1,18 @@
 //! Configuration and handling of webhook pushes from Sonarr/Radarr.
 
-use crate::facades::{handle_radarr_webhook, handle_sonarr_webhook, send_matrix_messages};
-use crate::models::radarr::RadarrWebhook;
-use crate::models::sonarr::SonarrWebhook;
-use crate::yarrbot_api_error::YarrbotApiError;
+use crate::facades::{send_matrix_messages, handle_webhook};
 use actix_web::{web, Error, HttpResponse};
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use extractors::webhook_extractor::WebhookInfo;
 use futures_util::StreamExt;
-use tracing::{debug, error, debug_span};
-use serde::Deserialize;
+use tracing::{error, info_span, error_span};
 use std::str;
-use yarrbot_db::enums::ArrType;
 use yarrbot_db::DbPool;
 use yarrbot_matrix_client::MatrixClient;
 use tracing_actix_web::RootSpan;
 use std::convert::AsRef;
+use crate::models::ArrWebhook;
+use tracing_futures::Instrument;
 
 mod extractors;
 mod facades;
@@ -40,18 +37,12 @@ pub fn webhook_config<T: MatrixClient + Send + Sync + 'static + Clone>(
     );
 }
 
-fn deserialize_body<'de, T>(body: &'de web::BytesMut) -> Result<T>
-where
-    T: Deserialize<'de>,
-{
-    serde_json::from_slice::<T>(body).with_context(|| {
-        let span = debug_span!("Parsing Request Body");
-        span.in_scope(|| {
-            let str_body = str::from_utf8(body).unwrap_or("Could not convert body to string.");
-            debug!("Request body: {}", str_body)
-        });
-
-        "Encountered an error while parsing webhook request body."
+fn deserialize_body(body: web::BytesMut) -> Result<ArrWebhook> {
+    serde_json::from_slice::<ArrWebhook>(&body).with_context(|| {
+        const ERR_MESSAGE: &str = "Encountered an error while parsing webhook request body.";
+        let str_body = str::from_utf8(&body).unwrap_or("Could not convert body to string.");
+        error!(request_body = str_body, ERR_MESSAGE);
+        ERR_MESSAGE
     })
 }
 
@@ -65,63 +56,48 @@ async fn index<T: MatrixClient>(
     root_span.record("webhook_arr_type", &webhook_info.webhook.arr_type.as_ref());
     root_span.record("webhook_short_id", &webhook_info.short_id.as_str());
 
-    // Essentially copied from: https://actix.rs/docs/request/
-    let mut body = web::BytesMut::new();
-    while let Some(chunk) = payload.next().await {
-        let chunk = chunk?;
-        if (body.len() + chunk.len()) > MAX_SIZE {
-            return Err(YarrbotApiError::bad_request(
-                format!("Body exceeded limit of {} kilobytes.", MAX_SIZE).as_str(),
-            )
-            .into());
+    let deserialization_result = async move {
+        // Essentially copied from: https://actix.rs/docs/request/
+        let mut body = web::BytesMut::new();
+        while let Some(chunk) = payload.next().await {
+            let chunk = chunk?;
+            if (body.len() + chunk.len()) > MAX_SIZE {
+                const ERR_MESSAGE: &str = "Request body exceeded max allowed size.";
+                error!(max_request_body_size = MAX_SIZE, ERR_MESSAGE);
+                bail!(ERR_MESSAGE);
+            }
+            body.extend_from_slice(&chunk);
         }
 
-        body.extend_from_slice(&chunk);
+        deserialize_body(body)
+    }.instrument(error_span!("Deserializing Request Body")).await;
+
+    if let Ok(body) = deserialization_result {
+        let webhook = &webhook_info.webhook;
+        let message = handle_webhook(body, webhook)
+            .instrument(info_span!("Converting Webhook to Matrix Message"))
+            .await;
+        match message {
+            Ok(m) => {
+                let send_result = send_matrix_messages(
+                    pool.get_ref(),
+                    &webhook.id,
+                    matrix_client.get_ref(), m)
+                    .instrument(info_span!("Sending Matrix Messages"))
+                    .await;
+                if let Err(e) = send_result {
+                    error!("Encountered error while sending webhook Matrix messages: {:?}", e);
+                    return Ok(HttpResponse::InternalServerError().finish());
+                }
+            },
+            Err(e) => {
+                error!("Encountered error during webhook to Matrix message conversion: {:?}", e);
+                return Ok(HttpResponse::InternalServerError().finish());
+            }
+        }
+    } else {
+        return Ok(HttpResponse::BadRequest().finish());
     }
 
-    let webhook = webhook_info.webhook;
-    let message_result = match webhook.arr_type {
-        ArrType::Sonarr => match deserialize_body::<SonarrWebhook>(&body) {
-            Ok(w) => handle_sonarr_webhook(&w).await,
-            Err(e) => {
-                debug!("Encountered error while parsing webhook: {:?}", e);
-                return Ok(HttpResponse::BadRequest().finish());
-            }
-        },
-        ArrType::Radarr => match deserialize_body::<RadarrWebhook>(&body) {
-            Ok(w) => handle_radarr_webhook(&w).await,
-            Err(e) => {
-                debug!("Encountered error while parsing webhook: {:?}", e);
-                return Ok(HttpResponse::BadRequest().finish());
-            }
-        },
-    };
-    let message = match message_result {
-        Ok(m) => m,
-        Err(e) => {
-            error!(
-                "Failed to transform the webhook into a message to send to Matrix: {:?}",
-                e
-            );
-            return Ok(HttpResponse::InternalServerError().finish());
-        }
-    };
-    debug!("Sending Matrix messages now.");
-    match send_matrix_messages(
-        pool.get_ref(),
-        &webhook.id,
-        matrix_client.get_ref(),
-        message,
-    )
-    .await
-    {
-        Ok(_) => Ok(HttpResponse::Ok().finish()),
-        Err(e) => {
-            error!(
-                "Encountered error while sending webhook Matrix messages: {:?}",
-                e
-            );
-            Ok(HttpResponse::InternalServerError().finish())
-        }
-    }
+    return Ok(HttpResponse::Ok().finish());
 }

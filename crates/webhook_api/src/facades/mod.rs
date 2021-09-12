@@ -5,7 +5,7 @@ mod radarr_facade;
 mod sonarr_facade;
 
 use actix_web::web::block;
-use anyhow::Result;
+use anyhow::{Result, ensure};
 use crate::models::common::ArrHealthCheckResult;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
@@ -15,11 +15,25 @@ use std::option::Option::Some;
 use uuid::Uuid;
 use yarrbot_db::actions::matrix_room_actions::MatrixRoomActions;
 use yarrbot_db::enums::ArrType;
-use yarrbot_db::models::MatrixRoom;
+use yarrbot_db::models::{MatrixRoom, Webhook};
 use yarrbot_db::DbPool;
 use yarrbot_matrix_client::message::{MessageData, MessageDataBuilder, SectionHeadingLevel};
 use yarrbot_matrix_client::MatrixClient;
 use tracing::{info, warn, error};
+use crate::models::ArrWebhook;
+
+pub async fn handle_webhook(body: ArrWebhook, webhook: &Webhook) -> Result<MessageData> {
+    match body {
+        ArrWebhook::Sonarr(w) => {
+            ensure!(matches!(webhook.arr_type, ArrType::Sonarr), "Received non-Sonarr webhook for a Sonarr webhook.");
+            handle_sonarr_webhook(w).await
+        },
+        ArrWebhook::Radarr(w) => {
+            ensure!(matches!(webhook.arr_type, ArrType::Radarr), "Received non-Radarr webhook for a Radarr webhook.");
+            handle_radarr_webhook(w).await
+        }
+    }
+}
 
 pub async fn send_matrix_messages<T: MatrixClient>(
     pool: &DbPool,
@@ -60,11 +74,11 @@ fn add_quality(builder: &mut MessageDataBuilder, quality: &Option<String>) {
 
 /// Respond to health checks from Sonarr/Radarr.
 fn on_health_check(
-    arr_type: &ArrType,
-    level: &Option<ArrHealthCheckResult>,
-    message: &Option<String>,
-    health_type: &Option<String>,
-    wiki_url: &Option<String>,
+    arr_type: ArrType,
+    level: Option<ArrHealthCheckResult>,
+    message: Option<String>,
+    health_type: Option<String>,
+    wiki_url: Option<String>,
 ) -> MessageData {
     let arr = match arr_type {
         ArrType::Sonarr => "Sonarr",

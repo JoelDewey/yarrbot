@@ -11,27 +11,27 @@ use yarrbot_matrix_client::message::{MatrixMessageDataPart, MessageData, Message
 use tracing::{debug, info};
 
 /// Process webhook data pushed from Sonarr. The interaction differs based on the type of [SonarrWebhook] provided.
-pub async fn handle_sonarr_webhook(data: &SonarrWebhook) -> Result<MessageData> {
+pub async fn handle_sonarr_webhook(data: SonarrWebhook) -> Result<MessageData> {
     debug!("Processing Sonarr webhook.");
     let message = match data {
-        SonarrWebhook::Test { series, episodes } => on_test(series, episodes),
+        SonarrWebhook::Test { series, episodes } => on_test(series, &episodes),
         SonarrWebhook::Grab {
             series,
             episodes,
             release,
             ..
-        } => on_grab(series, episodes, release),
+        } => on_grab(series, &episodes, release),
         SonarrWebhook::Download {
             series,
             episodes,
             episode_file,
             is_upgrade,
             ..
-        } => on_download(series, episodes, episode_file, is_upgrade),
+        } => on_download(series, &episodes, episode_file, is_upgrade),
         SonarrWebhook::Rename {
             series,
             renamed_episode_files,
-        } => on_rename(series, renamed_episode_files),
+        } => on_rename(series, &renamed_episode_files),
         SonarrWebhook::SeriesDelete {
             series,
             deleted_files,
@@ -41,13 +41,13 @@ pub async fn handle_sonarr_webhook(data: &SonarrWebhook) -> Result<MessageData> 
             episodes,
             episode_file,
             delete_reason,
-        } => on_episode_file_delete(series, episodes, episode_file, delete_reason),
+        } => on_episode_file_delete(series, &episodes, episode_file, delete_reason),
         SonarrWebhook::Health {
             level,
             message,
             health_type,
             wiki_url,
-        } => on_health_check(&ArrType::Sonarr, level, message, health_type, wiki_url),
+        } => on_health_check(ArrType::Sonarr, level, message, health_type, wiki_url),
     };
 
     Ok(message)
@@ -73,31 +73,31 @@ fn add_episodes(builder: &mut MessageDataBuilder, episodes: &[SonarrEpisode]) {
 }
 
 fn on_grab(
-    series: &SonarrSeries,
+    series: SonarrSeries,
     episodes: &[SonarrEpisode],
-    release: &SonarrRelease,
+    release: SonarrRelease,
 ) -> MessageData {
     info!("Received Grab webhook from Sonarr.");
     let mut builder = MessageDataBuilder::new();
     add_heading(&mut builder, "Series Grabbed", &series.title);
     add_quality(&mut builder, &release.quality);
     builder.break_character();
-    add_episodes(&mut builder, episodes);
+    add_episodes(&mut builder, &episodes);
 
     builder.to_message_data()
 }
 
 fn on_download(
-    series: &SonarrSeries,
+    series: SonarrSeries,
     episodes: &[SonarrEpisode],
-    episode_file: &SonarrEpisodeFile,
-    is_upgrade: &bool,
+    episode_file: SonarrEpisodeFile,
+    is_upgrade: bool,
 ) -> MessageData {
     info!("Received Download webhook from Sonarr.");
     let mut builder = MessageDataBuilder::new();
     add_heading(&mut builder, "Series Downloaded", &series.title);
     add_quality(&mut builder, &episode_file.quality);
-    builder.add_key_value("Is Upgrade", if *is_upgrade { "Yes" } else { "No" });
+    builder.add_key_value("Is Upgrade", if is_upgrade { "Yes" } else { "No" });
     builder.break_character();
     add_episodes(&mut builder, episodes);
 
@@ -157,7 +157,7 @@ impl MatrixMessageDataPart for RenamedFiles {
 }
 
 fn on_rename(
-    series: &SonarrSeries,
+    series: SonarrSeries,
     renamed_episode_files: &[SonarrRenamedEpisodeFile],
 ) -> MessageData {
     info!("Received Rename webhook from Sonarr.");
@@ -168,20 +168,20 @@ fn on_rename(
     builder.to_message_data()
 }
 
-fn on_series_delete(series: &SonarrSeries, deleted_files: &bool) -> MessageData {
+fn on_series_delete(series: SonarrSeries, deleted_files: bool) -> MessageData {
     info!("Received Series Delete webhook from Sonarr.");
     let mut builder = MessageDataBuilder::new();
     add_heading(&mut builder, "Series Deleted", &series.title);
-    builder.add_key_value("Files Deleted", if *deleted_files { "Yes" } else { "No" });
+    builder.add_key_value("Files Deleted", if deleted_files { "Yes" } else { "No" });
 
     builder.to_message_data()
 }
 
 fn on_episode_file_delete(
-    series: &SonarrSeries,
+    series: SonarrSeries,
     episodes: &[SonarrEpisode],
-    episode_file: &SonarrEpisodeDeletedFile,
-    reason: &Option<String>,
+    episode_file: SonarrEpisodeDeletedFile,
+    reason: Option<String>,
 ) -> MessageData {
     info!("Received Episode File Delete webhook from Sonarr.");
     let mut builder = MessageDataBuilder::new();
@@ -189,8 +189,7 @@ fn on_episode_file_delete(
     builder.add_key_value(
         "Reason",
         reason
-            .as_ref()
-            .unwrap_or(&String::from("No Reason Given"))
+            .unwrap_or(String::from("No Reason Given"))
             .as_str(),
     );
     let q = if let Some(quality) = &episode_file.quality {
@@ -205,7 +204,7 @@ fn on_episode_file_delete(
     builder.to_message_data()
 }
 
-fn on_test(series: &SonarrSeries, episodes: &[SonarrEpisode]) -> MessageData {
+fn on_test(series: SonarrSeries, episodes: &[SonarrEpisode]) -> MessageData {
     info!("Received Test webhook from Sonarr.");
     let mut builder = MessageDataBuilder::new();
     add_heading(&mut builder, "Sonarr Test", &series.title);

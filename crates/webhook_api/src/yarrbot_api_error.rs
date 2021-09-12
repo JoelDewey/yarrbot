@@ -33,6 +33,7 @@ impl YarrbotApiError {
         }
     }
 
+    #[allow(dead_code)]
     pub fn bad_request(message: &str) -> Self {
         Self::new(message, StatusCode::BAD_REQUEST)
     }

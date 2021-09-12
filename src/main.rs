@@ -1,5 +1,6 @@
 mod first_time_initialization;
 mod matrix_initialization;
+mod yarrbot_root_span;
 
 extern crate dotenv;
 
@@ -23,6 +24,7 @@ use tracing_subscriber::{EnvFilter, Registry};
 use tracing::level_filters::LevelFilter;
 use tracing_actix_web::TracingLogger;
 use tracing_subscriber::layer::SubscriberExt;
+use crate::yarrbot_root_span::YarrbotRootSpan;
 
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -71,7 +73,7 @@ async fn main() -> Result<(), anyhow::Error> {
     info!("Staring up web server...");
     let http_server = HttpServer::new(move || {
         App::new()
-            .wrap(TracingLogger::default())
+            .wrap(TracingLogger::<YarrbotRootSpan>::new())
             .app_data(web::Data::new(pool.clone()))
             .app_data(web::Data::new(matrix_client.clone()))
             .service(web::scope("/api/v1").configure(webhook_config::<YarrbotMatrixClient>))

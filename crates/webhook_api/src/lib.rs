@@ -14,6 +14,8 @@ use std::str;
 use yarrbot_db::enums::ArrType;
 use yarrbot_db::DbPool;
 use yarrbot_matrix_client::MatrixClient;
+use tracing_actix_web::RootSpan;
+use std::convert::AsRef;
 
 mod extractors;
 mod facades;
@@ -38,11 +40,16 @@ where
 }
 
 async fn index<T: MatrixClient>(
+    root_span: RootSpan,
     webhook_info: WebhookInfo,
     pool: web::Data<DbPool>,
     matrix_client: web::Data<T>,
     mut payload: web::Payload,
 ) -> Result<HttpResponse, Error> {
+    root_span.record("webhook_arr_type", &webhook_info.webhook.arr_type.as_ref());
+    root_span.record("webhook_short_id", &webhook_info.short_id.as_str());
+    root_span.record("webhook_id", &webhook_info.webhook.id.to_string().as_str());
+
     // Essentially copied from: https://actix.rs/docs/request/
     let mut body = web::BytesMut::new();
     while let Some(chunk) = payload.next().await {

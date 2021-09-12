@@ -20,9 +20,10 @@ use yarrbot_matrix_client::YarrbotMatrixClient;
 use yarrbot_webhook_api::{webhook_config, YarrbotRootSpan};
 use tracing_log::LogTracer;
 use tracing_subscriber::{EnvFilter, Registry};
-use tracing::level_filters::LevelFilter;
 use tracing_actix_web::TracingLogger;
 use tracing_subscriber::layer::SubscriberExt;
+
+const DEFAULT_TRACE_FILTER: &str = "warn,yarrbot=info";
 
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -33,9 +34,9 @@ async fn main() -> Result<(), anyhow::Error> {
     // Set up logging framework, reading filter configuration from the environment variable
     // or defaulting to warning logs and above globally if the filter isn't specified.
     LogTracer::init().expect("Could not initialize the LogTracer.");
-    let filter = EnvFilter::try_from_env(LOG_FILTER)
-        .unwrap_or_else(|_| EnvFilter::default())
-        .add_directive(LevelFilter::WARN.into());
+    let filter = get_env_var(LOG_FILTER)
+        .and_then(|f| EnvFilter::from_str(&f).context("Failed to parse tracer filter string."))
+        .unwrap_or_else(|_| EnvFilter::from_str(DEFAULT_TRACE_FILTER).expect("Default trace filter is invalid."));
     let (non_blocking_writer, _guard) = tracing_appender::non_blocking(std::io::stdout());
     let subscriber = Registry::default()
         .with(filter)

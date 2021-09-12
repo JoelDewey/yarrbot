@@ -30,9 +30,7 @@ pub async fn send_matrix_messages<T: MatrixClient>(
     let conn = pool.get()?;
     let id = *webhook_id;
     let rooms = block(move || MatrixRoom::get_by_webhook_id(&conn, &id)).await??;
-    let tasks = rooms
-        .iter()
-        .map(|r| client.send_message(&message, r));
+    let tasks = rooms.iter().map(|r| client.send_message(&message, r));
     let mut stream = tasks.collect::<FuturesUnordered<_>>();
     while let Some(item) = stream.next().await {
         if item.is_err() {
@@ -72,6 +70,7 @@ fn on_health_check(
         ArrType::Sonarr => "Sonarr",
         ArrType::Radarr => "Radarr",
     };
+    info!("Received Health Check webhook from {}.", arr);
 
     let mut builder = MessageDataBuilder::new();
     builder.add_heading(&SectionHeadingLevel::One, &format!("{} Health Check", arr));

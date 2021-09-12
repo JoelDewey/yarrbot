@@ -1,13 +1,13 @@
 extern crate dotenv;
 
-use lazy_static::{initialize, lazy_static};
-use std::sync::{Once, Arc};
-use tokio::sync::RwLock;
-use yarrbot_db::{build_pool, DbPool};
-use yarrbot_matrix_client::MatrixClient;
-use yarrbot_matrix_client::message::MessageData;
-use yarrbot_db::models::MatrixRoom;
 use async_trait::async_trait;
+use lazy_static::{initialize, lazy_static};
+use std::sync::{Arc, Once};
+use tokio::sync::RwLock;
+use yarrbot_db::models::MatrixRoom;
+use yarrbot_db::{build_pool, DbPool};
+use yarrbot_matrix_client::message::MessageData;
+use yarrbot_matrix_client::MatrixClient;
 
 static INIT: Once = Once::new();
 
@@ -28,13 +28,13 @@ pub fn setup() {
 /// Fake implementation of [MatrixClient] that captures the [MessageData]+[MatrixRoom] information provided to it.
 #[derive(Clone)]
 pub struct SpyMatrixClient {
-    messages: Arc<RwLock<Vec<(MessageData, MatrixRoom)>>>
+    messages: Arc<RwLock<Vec<(MessageData, MatrixRoom)>>>,
 }
 
 impl SpyMatrixClient {
     pub fn new() -> Self {
         SpyMatrixClient {
-            messages: Arc::new(RwLock::new(Vec::<(MessageData, MatrixRoom)>::new()))
+            messages: Arc::new(RwLock::new(Vec::<(MessageData, MatrixRoom)>::new())),
         }
     }
 }

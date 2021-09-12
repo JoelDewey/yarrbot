@@ -2,6 +2,8 @@ use anyhow::Error;
 use base64::{CharacterSet, Config};
 use uuid::Uuid;
 
+const SHORT_ID_CONFIG: Config = Config::new(CharacterSet::UrlSafe, false);
+
 /// Enables converting some UUID struct ([uuid::Uuid]) to and from a "short ID", which is a base64 and URL-safe
 /// representation of said UUID struct.
 pub trait ShortId {
@@ -11,8 +13,6 @@ pub trait ShortId {
     /// Convert some [&str] back into a [Self].
     fn from_short_id(short_id: &str) -> Result<Box<Self>, Error>;
 }
-
-const SHORT_ID_CONFIG: Config = Config::new(CharacterSet::UrlSafe, false);
 
 impl ShortId for Uuid {
     fn to_short_id(&self) -> String {

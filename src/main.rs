@@ -18,8 +18,8 @@ use yarrbot_common::environment::{
     variables::{LOG_FILTER, WEB_PORT},
 };
 use yarrbot_db::{build_pool, migrate};
-use yarrbot_webhook_api::webhook_config;
 use yarrbot_matrix_client::YarrbotMatrixClient;
+use yarrbot_webhook_api::webhook_config;
 
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {

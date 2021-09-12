@@ -8,15 +8,15 @@ use crate::models::radarr::RadarrWebhook;
 use crate::models::sonarr::SonarrWebhook;
 use crate::yarrbot_api_error::YarrbotApiError;
 use actix_web::{web, Error, HttpResponse};
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 use extractors::webhook_extractor::WebhookInfo;
 use futures_util::StreamExt;
 use log::Level::Debug;
+use serde::Deserialize;
 use std::str;
 use yarrbot_db::enums::ArrType;
 use yarrbot_db::DbPool;
 use yarrbot_matrix_client::MatrixClient;
-use serde::Deserialize;
 
 mod extractors;
 mod facades;
@@ -25,10 +25,13 @@ mod yarrbot_api_error;
 
 const MAX_SIZE: usize = 262_144; // Limit max payload size to 256k.
 
-fn parse_body<'de, T>(body: &'de web::BytesMut) -> Result<T> where T: Deserialize<'de> {
+fn parse_body<'de, T>(body: &'de web::BytesMut) -> Result<T>
+where
+    T: Deserialize<'de>,
+{
     serde_json::from_slice::<T>(body).with_context(|| {
         if log_enabled!(Debug) {
-            let str_body = str::from_utf8(&body).unwrap_or("Could not convert body to string.");
+            let str_body = str::from_utf8(body).unwrap_or("Could not convert body to string.");
             debug!("Request body: {}", str_body)
         }
 
@@ -58,44 +61,55 @@ async fn index<T: MatrixClient>(
 
     let webhook = webhook_info.webhook;
     let message_result = match webhook.arr_type {
-        ArrType::Sonarr => {
-            debug!("Starting processing of Sonarr webhook.");
-            match parse_body::<SonarrWebhook>(&body) {
-                Ok(w) => handle_sonarr_webhook(&w).await,
-                Err(e) => {
-                    debug!("Encountered error while parsing webhook: {:?}", e);
-                    return Ok(HttpResponse::BadRequest().finish());
-                }
+        ArrType::Sonarr => match parse_body::<SonarrWebhook>(&body) {
+            Ok(w) => handle_sonarr_webhook(&w).await,
+            Err(e) => {
+                debug!("Encountered error while parsing webhook: {:?}", e);
+                return Ok(HttpResponse::BadRequest().finish());
             }
-        }
-        ArrType::Radarr => {
-            match parse_body::<RadarrWebhook>(&body) {
-                Ok(w) => handle_radarr_webhook(&w).await,
-                Err(e) => {
-                    debug!("Encountered error while parsing webhook: {:?}", e);
-                    return Ok(HttpResponse::BadRequest().finish());
-                }
+        },
+        ArrType::Radarr => match parse_body::<RadarrWebhook>(&body) {
+            Ok(w) => handle_radarr_webhook(&w).await,
+            Err(e) => {
+                debug!("Encountered error while parsing webhook: {:?}", e);
+                return Ok(HttpResponse::BadRequest().finish());
             }
-        }
+        },
     };
     let message = match message_result {
         Ok(m) => m,
         Err(e) => {
-            error!("Failed to transform the webhook into a message to send to Matrix: {:?}", e);
+            error!(
+                "Failed to transform the webhook into a message to send to Matrix: {:?}",
+                e
+            );
             return Ok(HttpResponse::InternalServerError().finish());
         }
     };
-    match send_matrix_messages(pool.get_ref(), &webhook.id, matrix_client.get_ref(), message).await {
+    debug!("Sending Matrix messages now.");
+    match send_matrix_messages(
+        pool.get_ref(),
+        &webhook.id,
+        matrix_client.get_ref(),
+        message,
+    )
+    .await
+    {
         Ok(_) => Ok(HttpResponse::Ok().finish()),
         Err(e) => {
-            error!("Encountered error while sending webhook Matrix messages: {:?}", e);
+            error!(
+                "Encountered error while sending webhook Matrix messages: {:?}",
+                e
+            );
             Ok(HttpResponse::InternalServerError().finish())
         }
     }
 }
 
 /// Configure the webhook API endpoints.
-pub fn webhook_config<T: MatrixClient + Send + Sync + 'static + Clone>(cfg: &mut web::ServiceConfig) {
+pub fn webhook_config<T: MatrixClient + Send + Sync + 'static + Clone>(
+    cfg: &mut web::ServiceConfig,
+) {
     cfg.service(
         web::scope("/webhook").service(
             web::resource("/{webhook_id}")

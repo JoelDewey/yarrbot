@@ -2,6 +2,10 @@ use anyhow::{Context, Result};
 use std::env;
 use std::fs;
 
+pub mod variables {
+    pub use crate::environment_variables::*;
+}
+
 /// Retrieve some environment variable value by its name. Also checks if the environment variable
 /// value is in some file, the path to which is retrieved from an environment variable by the
 /// given name concatenated with `_FILE`.
@@ -26,8 +30,4 @@ pub fn get_env_var(name: &str) -> Result<String> {
 fn get_from_file(name: &str) -> Result<String> {
     let path = env::var(format!("{}_FILE", name))?;
     Ok(fs::read_to_string(path)?)
-}
-
-pub mod variables {
-    pub use crate::environment_variables::*;
 }

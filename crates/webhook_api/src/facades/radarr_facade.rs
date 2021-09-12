@@ -5,13 +5,12 @@ use crate::models::radarr::{
     RadarrMovie, RadarrMovieFile, RadarrRelease, RadarrRemoteMovie, RadarrWebhook,
 };
 use anyhow::Result;
-use yarrbot_matrix_client::message::{MessageData, MessageDataBuilder};
 use yarrbot_db::enums::ArrType;
+use yarrbot_matrix_client::message::{MessageData, MessageDataBuilder};
 
 /// Process webhook data pushed from Radarr. The interaction differs based on the type of [RadarrWebhook] provided.
-pub async fn handle_radarr_webhook(
-    data: &RadarrWebhook,
-) -> Result<MessageData> {
+pub async fn handle_radarr_webhook(data: &RadarrWebhook) -> Result<MessageData> {
+    debug!("Processing Radarr webhook.");
     let message = match data {
         RadarrWebhook::Test {
             movie,

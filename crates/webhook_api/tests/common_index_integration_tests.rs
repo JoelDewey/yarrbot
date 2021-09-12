@@ -1,9 +1,9 @@
+use crate::common::SpyMatrixClient;
 use actix_web::http::header::ContentType;
 use actix_web::http::Method;
 use actix_web::http::StatusCode;
 use actix_web::{test, web, App};
 use yarrbot_webhook_api::webhook_config;
-use crate::common::SpyMatrixClient;
 
 mod common;
 
@@ -41,7 +41,8 @@ async fn index_post_returns_200_given_valid_info() {
             .app_data(web::Data::new(common::POOL.clone()))
             .app_data(web::Data::new(client.clone()))
             .service(web::scope("/api/v1").configure(webhook_config::<SpyMatrixClient>)),
-    ).await;
+    )
+    .await;
     let req = test::TestRequest::default()
         .insert_header((
             "authorization",
@@ -70,7 +71,8 @@ async fn index_returns_401_unauthorized_given_invalid_credentials() {
             .app_data(web::Data::new(common::POOL.clone()))
             .app_data(web::Data::new(client.clone()))
             .service(web::scope("/api/v1").configure(webhook_config::<SpyMatrixClient>)),
-    ).await;
+    )
+    .await;
     // NotARealUser:badP@55
     let input_b64 = "Tm90QVJlYWxVc2VyOmJhZFBANTU=";
     let req = test::TestRequest::default()
@@ -98,7 +100,8 @@ async fn index_returns_404_not_found_given_short_id_not_uuid() {
             .app_data(web::Data::new(common::POOL.clone()))
             .app_data(web::Data::new(client.clone()))
             .service(web::scope("/api/v1").configure(webhook_config::<SpyMatrixClient>)),
-    ).await;
+    )
+    .await;
     let req = test::TestRequest::default()
         .insert_header((
             "authorization",
@@ -127,7 +130,8 @@ async fn index_returns_404_not_found_given_valid_short_id_but_not_in_db() {
             .app_data(web::Data::new(common::POOL.clone()))
             .app_data(web::Data::new(client.clone()))
             .service(web::scope("/api/v1").configure(webhook_config::<SpyMatrixClient>)),
-    ).await;
+    )
+    .await;
     let req = test::TestRequest::default()
         .insert_header((
             "authorization",
@@ -157,7 +161,8 @@ async fn index_post_returns_400_given_invalid_request_body() {
             .app_data(web::Data::new(common::POOL.clone()))
             .app_data(web::Data::new(client.clone()))
             .service(web::scope("/api/v1").configure(webhook_config::<SpyMatrixClient>)),
-    ).await;
+    )
+    .await;
     let req = test::TestRequest::default()
         .insert_header((
             "authorization",

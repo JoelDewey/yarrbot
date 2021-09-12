@@ -6,13 +6,12 @@ use crate::models::sonarr::{
     SonarrRenamedEpisodeFile, SonarrSeries, SonarrWebhook,
 };
 use anyhow::Result;
-use yarrbot_matrix_client::message::{MatrixMessageDataPart, MessageData, MessageDataBuilder};
 use yarrbot_db::enums::ArrType;
+use yarrbot_matrix_client::message::{MatrixMessageDataPart, MessageData, MessageDataBuilder};
 
 /// Process webhook data pushed from Sonarr. The interaction differs based on the type of [SonarrWebhook] provided.
-pub async fn handle_sonarr_webhook(
-    data: &SonarrWebhook,
-) -> Result<MessageData> {
+pub async fn handle_sonarr_webhook(data: &SonarrWebhook) -> Result<MessageData> {
+    debug!("Processing Sonarr webhook.");
     let message = match data {
         SonarrWebhook::Test { series, episodes } => on_test(series, episodes),
         SonarrWebhook::Grab {

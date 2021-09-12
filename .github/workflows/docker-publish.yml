@@ -25,8 +25,24 @@ jobs:
 
     runs-on: ubuntu-latest
     container: rust:1.53.0
+    services:
+      postgres:
+        image: postgres:13.2
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_PASSWORD: password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     permissions:
       contents: read
+    env:
+      DATABASE_URL: postgres://postgres:password@postgres/postgres
+      # Overrides the value in integrationtest.env.
+      YARRBOT_DATABASE_URL: postgres://postgres:password@postgres/postgres
 
     steps:
       - name: Checkout
@@ -40,8 +56,16 @@ jobs:
       - name: Build Project
         run: cargo build --verbose
 
-      - name: Run Unit Tests
-        run: cargo test --verbose --lib --workspace --bin yarrbot
+      - name: Install Diesel CLI
+        run: cargo install diesel_cli --no-default-features --features postgres
+
+      - name: Migrate Database for Tests
+        run: |
+          diesel migration run --migration-dir migrations
+          diesel migration run --migration-dir migrations_testing
+
+      - name: Run Tests
+        run: cargo test --verbose --workspace
 
   build:
 

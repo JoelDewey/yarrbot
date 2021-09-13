@@ -212,3 +212,82 @@ fn on_test(series: &SonarrSeries, episodes: &[SonarrEpisode]) -> MessageData {
 
     builder.to_message_data()
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::facades::sonarr_facade::add_episodes;
+    use crate::models::sonarr::SonarrEpisode;
+    use yarrbot_matrix_client::message::MessageDataBuilder;
+
+    #[test]
+    pub fn add_episodes_returns_zero_padded_season_episode_if_less_than_10() {
+        // Arrange
+        let input_episodes = vec![SonarrEpisode {
+            id: 1,
+            season_number: 9,
+            episode_number: 9,
+            title: String::from("Test"),
+            air_date: None,
+            air_date_utc: None,
+        }];
+        let mut builder = MessageDataBuilder::new();
+
+        // Act
+        add_episodes(&mut builder, &input_episodes);
+        let actual = builder.to_message_data();
+
+        // Assert
+        assert_eq!(
+            "**Season**: 09 \n **Episode**: 09 \n **Title**: Test \n",
+            actual.plain.as_str()
+        );
+    }
+
+    #[test]
+    pub fn add_episodes_returns_unchanged_season_episode_if_less_than_100_greater_than_9() {
+        // Arrange
+        let input_episodes = vec![SonarrEpisode {
+            id: 1,
+            season_number: 10,
+            episode_number: 99,
+            title: String::from("Test"),
+            air_date: None,
+            air_date_utc: None,
+        }];
+        let mut builder = MessageDataBuilder::new();
+
+        // Act
+        add_episodes(&mut builder, &input_episodes);
+        let actual = builder.to_message_data();
+
+        // Assert
+        assert_eq!(
+            "**Season**: 10 \n **Episode**: 99 \n **Title**: Test \n",
+            actual.plain.as_str()
+        );
+    }
+
+    #[test]
+    pub fn add_episodes_returns_unchanged_season_episode_if_greater_than_99() {
+        // Arrange
+        let input_episodes = vec![SonarrEpisode {
+            id: 1,
+            season_number: 234,
+            episode_number: 100,
+            title: String::from("Test"),
+            air_date: None,
+            air_date_utc: None,
+        }];
+        let mut builder = MessageDataBuilder::new();
+
+        // Act
+        add_episodes(&mut builder, &input_episodes);
+        let actual = builder.to_message_data();
+
+        // Assert
+        assert_eq!(
+            "**Season**: 234 \n **Episode**: 100 \n **Title**: Test \n",
+            actual.plain.as_str()
+        );
+    }
+}

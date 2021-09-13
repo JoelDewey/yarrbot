@@ -19,6 +19,7 @@ futures = { version = "0.3.16", default-features = false, features = ["std", "as
 uuid = { version = "= 0.8.2", features = ["v4"] }
 base64 = "0.13.0"
 anyhow = "1.0.42"
+thiserror = "1.0"
 yarrbot_db = { path = "../db" }
 yarrbot_common = { path = "../common" }
 yarrbot_matrix_client = { path = "../matrix_client" }

@@ -1,24 +1,73 @@
 //! Helper utilities for returning API errors to clients.
 
 use actix_web::http::StatusCode;
-use actix_web::{HttpResponse, ResponseError};
+use actix_web::{error::ResponseError, HttpResponse};
 use serde::Serialize;
-use std::fmt::{Display, Formatter};
+use thiserror::Error;
+use tracing::error;
 
-/// Represents an error to send back to clients (e.g. Sonarr or Radarr).
+#[derive(Debug, Error)]
+pub enum YarrbotApiError {
+    #[error("{message:?}")]
+    UserError {
+        status: YarrbotStatusCode,
+        message: String,
+        source: Option<anyhow::Error>,
+    },
+    #[error("Internal Server Error")]
+    InternalError(#[from] anyhow::Error),
+}
+
+#[derive(Debug)]
+pub enum YarrbotStatusCode {
+    BadRequest,
+    NotFound,
+    Unauthorized,
+}
+
 #[derive(Debug, Serialize)]
-pub struct YarrbotApiError {
+struct YarrbotUserErrorMessage<'a> {
     pub status: u16,
-    pub message: String,
+    pub message: &'a str,
 }
 
 impl ResponseError for YarrbotApiError {
     fn status_code(&self) -> StatusCode {
-        StatusCode::from_u16(self.status).unwrap()
+        match self {
+            YarrbotApiError::UserError { status, .. } => match status {
+                YarrbotStatusCode::BadRequest => StatusCode::BAD_REQUEST,
+                YarrbotStatusCode::NotFound => StatusCode::NOT_FOUND,
+                YarrbotStatusCode::Unauthorized => StatusCode::UNAUTHORIZED,
+            },
+            YarrbotApiError::InternalError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        }
     }
 
     fn error_response(&self) -> HttpResponse {
-        HttpResponse::build(StatusCode::from_u16(self.status).unwrap()).json(self)
+        match self {
+            YarrbotApiError::UserError {
+                message, source, ..
+            } => {
+                if source.is_some() {
+                    error!("{:?}", source.as_ref().unwrap());
+                }
+                let code = self.status_code();
+                let code_u16 = code.as_u16();
+                HttpResponse::build(code).json(YarrbotUserErrorMessage {
+                    status: code_u16,
+                    message,
+                })
+            }
+            YarrbotApiError::InternalError(source) => {
+                error!("{:?}", source);
+                HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR).json(
+                    YarrbotUserErrorMessage {
+                        status: StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
+                        message: "Internal Server Error",
+                    },
+                )
+            }
+        }
     }
 }
 
@@ -26,38 +75,28 @@ impl YarrbotApiError {
     /// Create a new instance of [YarrbotApiError] with a given [StatusCode].
     /// Before creating a new [YarrbotApiError], check for dedicated methods
     /// to return the appropriate status code.
-    pub fn new(message: &str, status: StatusCode) -> Self {
-        YarrbotApiError {
+    fn new(message: &str, status: YarrbotStatusCode, inner: Option<anyhow::Error>) -> Self {
+        YarrbotApiError::UserError {
             message: String::from(message),
-            status: status.as_u16(),
+            status,
+            source: inner,
         }
     }
 
     #[allow(dead_code)]
-    pub fn bad_request(message: &str) -> Self {
-        Self::new(message, StatusCode::BAD_REQUEST)
+    pub fn bad_request(message: &str, inner: Option<anyhow::Error>) -> Self {
+        Self::new(message, YarrbotStatusCode::BadRequest, inner)
     }
 
-    pub fn not_found() -> Self {
-        Self::new("Not Found", StatusCode::NOT_FOUND)
+    pub fn not_found(inner: Option<anyhow::Error>) -> Self {
+        Self::new("Not Found", YarrbotStatusCode::NotFound, inner)
     }
 
-    pub fn unauthorized() -> Self {
-        Self::new("Unauthorized", StatusCode::UNAUTHORIZED)
+    pub fn unauthorized(inner: Option<anyhow::Error>) -> Self {
+        Self::new("Unauthorized", YarrbotStatusCode::Unauthorized, inner)
     }
 
-    pub fn internal_server_error() -> Self {
-        Self::new("Internal Server Error", StatusCode::INTERNAL_SERVER_ERROR)
-    }
-}
-
-impl Display for YarrbotApiError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            serde_json::to_string(self)
-                .unwrap_or_else(|_| String::from("{ message: \"Fatal Error\" }"))
-        )
+    pub fn internal_server_error(inner: anyhow::Error) -> Self {
+        YarrbotApiError::InternalError(inner)
     }
 }

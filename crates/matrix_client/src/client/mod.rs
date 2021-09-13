@@ -17,11 +17,11 @@ use matrix_sdk::{
 use std::convert::TryFrom;
 use std::path::PathBuf;
 use tokio::task::spawn_blocking;
+use tracing::{debug, info};
 use url::Url;
 use yarrbot_db::actions::matrix_room_actions::MatrixRoomActions;
 use yarrbot_db::models::MatrixRoom;
 use yarrbot_db::DbPool;
-use tracing::{info, debug};
 
 /// Settings to configure a [YarrbotMatrixClient].
 pub struct YarrbotMatrixClientSettings {

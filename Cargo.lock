@@ -3468,6 +3468,7 @@ dependencies = [
  "lazy_static",
  "serde",
  "serde_json",
+ "thiserror",
  "tokio",
  "tracing",
  "tracing-actix-web",

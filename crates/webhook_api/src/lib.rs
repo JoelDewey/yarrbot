@@ -53,7 +53,7 @@ async fn index<T: MatrixClient>(
     pool: web::Data<DbPool>,
     matrix_client: web::Data<T>,
     mut payload: web::Payload,
-) -> Result<HttpResponse, Error> {
+) -> HttpResponse {
     root_span.record("webhook_arr_type", &webhook_info.webhook.arr_type.as_ref());
     root_span.record("webhook_short_id", &webhook_info.short_id.as_str());
 
@@ -85,22 +85,24 @@ async fn index<T: MatrixClient>(
                         .instrument(info_span!("Sending Matrix Messages"))
                         .await;
                 if let Err(e) = send_result {
-                    return Err(YarrbotApiError::internal_server_error(
-                        e.context("Encountered error while sending webhook Matrix messages."),
-                    )
-                    .into());
+                    error!(
+                        "{:?}",
+                        e.context("Encountered error while sending webhook Matrix messages.")
+                    );
+                    return HttpResponse::InternalServerError().finish();
                 }
             }
             Err(e) => {
-                return Err(YarrbotApiError::internal_server_error(
-                    e.context("Encountered error during webhook to Matrix message conversion."),
-                )
-                .into());
+                error!(
+                    "{:?}",
+                    e.context("Encountered error during webhook to Matrix message conversion.")
+                );
+                return HttpResponse::InternalServerError().finish();
             }
         }
     } else {
-        return Err(YarrbotApiError::bad_request("Bad webhook request body.", None).into());
+        return HttpResponse::BadRequest().finish();
     }
 
-    return Ok(HttpResponse::Ok().finish());
+    HttpResponse::Ok().finish()
 }

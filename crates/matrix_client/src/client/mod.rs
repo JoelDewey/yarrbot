@@ -6,8 +6,13 @@ use async_trait::async_trait;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use itertools::Itertools;
+use matrix_sdk::room::Room;
+use matrix_sdk::ruma::events::room::member::MemberEventContent;
+use matrix_sdk::ruma::events::room::message::MessageEventContent;
+use matrix_sdk::ruma::events::{StrippedStateEvent, SyncMessageEvent};
 use matrix_sdk::{
-    events::AnyMessageEventContent, identifiers::RoomId, Client, ClientConfig, SyncSettings,
+    ruma::events::AnyMessageEventContent, ruma::identifiers::RoomId, Client, ClientConfig,
+    SyncSettings,
 };
 use std::convert::TryFrom;
 use std::path::PathBuf;
@@ -77,11 +82,29 @@ impl YarrbotMatrixClient {
         client.sync_once(SyncSettings::default()).await?;
         YarrbotMatrixClient::init(&client, &pool).await?;
         debug!("Setting CommandParser event handler.");
+        // The registration of the event handlers and all of the cloning is based on the Matrix SDK's docs for
+        // version 0.4.0. Maybe revisit this later and see if there's a cleaner way to do this?
         client
-            .set_event_handler(Box::new(command_parser::CommandParser::new(
-                client.clone(),
-                pool.clone(),
-            )))
+            .register_event_handler({
+                let pool2 = pool.clone();
+                move |ev: SyncMessageEvent<MessageEventContent>, room: Room, client: Client| {
+                    let parser = command_parser::CommandParser::new(client, pool2.clone());
+                    async move {
+                        parser.on_room_message(room, &ev).await;
+                    }
+                }
+            })
+            .await;
+        client
+            .register_event_handler({
+                let pool2 = pool.clone();
+                move |ev: StrippedStateEvent<MemberEventContent>, room: Room, client: Client| {
+                    let parser = command_parser::CommandParser::new(client, pool2.clone());
+                    async move {
+                        parser.on_stripped_state_member(room, &ev).await;
+                    }
+                }
+            })
             .await;
 
         debug!("Matrix Client is ready.");

@@ -5,14 +5,13 @@ use crate::message::MessageData;
 use anyhow::Result;
 use log::Level::Debug;
 use matrix_sdk::{
-    async_trait,
-    events::{
+    room::Room,
+    ruma::events::{
         room::member::MemberEventContent,
         room::message::{MessageEventContent, MessageType, TextMessageEventContent},
         AnyMessageEventContent, StrippedStateEvent, SyncMessageEvent,
     },
-    room::Room,
-    Client, EventHandler,
+    Client,
 };
 use rand::distributions::Uniform;
 use rand::prelude::*;
@@ -31,6 +30,7 @@ pub struct CommandMetadata {
 }
 
 /// Parses commands and reacts to events from the Matrix homeserver.
+#[derive(Clone)] // TODO: Is this safe/smart to wrap in an Arc instead?
 pub struct CommandParser {
     client: Client,
     pool: DbPool,
@@ -43,31 +43,7 @@ impl CommandParser {
         Self { client, pool }
     }
 
-    async fn execute_command(
-        &self,
-        command: &str,
-        metadata: CommandMetadata,
-        data: VecDeque<&str>,
-    ) -> Result<MessageData> {
-        let result = match command {
-            "ping" => {
-                debug!("Received ping command.");
-                ping_command::get_message()
-            }
-            "webhook" => {
-                debug!("Received webhook command.");
-                webhook_command::handle_webhook_command(metadata, &self.client, &self.pool, data)
-                    .await?
-            }
-            _ => MessageData::from("Unrecognized command."),
-        };
-        Ok(result)
-    }
-}
-
-#[async_trait]
-impl EventHandler for CommandParser {
-    async fn on_room_message(&self, room: Room, event: &SyncMessageEvent<MessageEventContent>) {
+    pub async fn on_room_message(&self, room: Room, event: &SyncMessageEvent<MessageEventContent>) {
         // Don't respond to messages posted by our bot.
         if event.sender == self.client.user_id().await.unwrap() {
             debug!("Ignoring message posted by the bot itself.");
@@ -145,11 +121,10 @@ impl EventHandler for CommandParser {
         }
     }
 
-    async fn on_stripped_state_member(
+    pub async fn on_stripped_state_member(
         &self,
         room: Room,
         room_member: &StrippedStateEvent<MemberEventContent>,
-        _: Option<MemberEventContent>,
     ) {
         // Based off of https://github.com/matrix-org/matrix-rust-sdk/blob/0.3.0/matrix_sdk/examples/autojoin.rs
 
@@ -226,6 +201,27 @@ impl EventHandler for CommandParser {
                 last_error.unwrap()
             );
         }
+    }
+
+    async fn execute_command(
+        &self,
+        command: &str,
+        metadata: CommandMetadata,
+        data: VecDeque<&str>,
+    ) -> Result<MessageData> {
+        let result = match command {
+            "ping" => {
+                debug!("Received ping command.");
+                ping_command::get_message()
+            }
+            "webhook" => {
+                debug!("Received webhook command.");
+                webhook_command::handle_webhook_command(metadata, &self.client, &self.pool, data)
+                    .await?
+            }
+            _ => MessageData::from("Unrecognized command."),
+        };
+        Ok(result)
     }
 }
 

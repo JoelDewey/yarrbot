@@ -9,7 +9,7 @@ extern crate log;
 use crate::message::MessageData;
 use anyhow::Result;
 use async_trait::async_trait;
-use matrix_sdk::identifiers::UserId;
+use matrix_sdk::ruma::identifiers::UserId;
 use std::convert::TryFrom;
 use yarrbot_db::models::MatrixRoom;
 

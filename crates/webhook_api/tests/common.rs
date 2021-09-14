@@ -39,11 +39,23 @@ impl SpyMatrixClient {
     }
 }
 
+impl Default for SpyMatrixClient {
+    fn default() -> Self {
+        SpyMatrixClient::new()
+    }
+}
+
 #[async_trait]
 impl MatrixClient for SpyMatrixClient {
     async fn send_message(&self, message: &MessageData, room: &MatrixRoom) -> anyhow::Result<()> {
         let mut messages = self.messages.write().await;
-        messages.push((message.clone(), room.clone()));
+        messages.push((
+            MessageData {
+                plain: message.plain.clone(),
+                html: message.html.clone(),
+            },
+            room.clone(),
+        ));
 
         Ok(())
     }

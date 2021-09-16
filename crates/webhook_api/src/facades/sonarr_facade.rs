@@ -6,9 +6,10 @@ use crate::models::sonarr::{
     SonarrRenamedEpisodeFile, SonarrSeries, SonarrWebhook,
 };
 use anyhow::Result;
-use yarrbot_db::enums::ArrType;
-use yarrbot_matrix_client::message::{MatrixMessageDataPart, MessageData, MessageDataBuilder};
 use tracing::{debug, info};
+use yarrbot_matrix_client::message::{MatrixMessageDataPart, MessageData, MessageDataBuilder};
+
+pub const SONARR_NAME: &str = "Sonarr";
 
 /// Process webhook data pushed from Sonarr. The interaction differs based on the type of [SonarrWebhook] provided.
 pub async fn handle_sonarr_webhook(data: SonarrWebhook) -> Result<MessageData> {
@@ -47,7 +48,7 @@ pub async fn handle_sonarr_webhook(data: SonarrWebhook) -> Result<MessageData> {
             message,
             health_type,
             wiki_url,
-        } => on_health_check(ArrType::Sonarr, level, message, health_type, wiki_url),
+        } => on_health_check(SONARR_NAME, level, message, health_type, wiki_url),
     };
 
     Ok(message)
@@ -188,9 +189,7 @@ fn on_episode_file_delete(
     add_heading(&mut builder, "Series Episode Files Deleted", &series.title);
     builder.add_key_value(
         "Reason",
-        reason
-            .unwrap_or(String::from("No Reason Given"))
-            .as_str(),
+        reason.unwrap_or(String::from("No Reason Given")).as_str(),
     );
     let q = if let Some(quality) = &episode_file.quality {
         quality.quality.name.clone()

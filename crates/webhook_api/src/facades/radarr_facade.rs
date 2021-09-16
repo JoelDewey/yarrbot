@@ -5,9 +5,10 @@ use crate::models::radarr::{
     RadarrMovie, RadarrMovieFile, RadarrRelease, RadarrRemoteMovie, RadarrWebhook,
 };
 use anyhow::Result;
-use yarrbot_db::enums::ArrType;
-use yarrbot_matrix_client::message::{MessageData, MessageDataBuilder};
 use tracing::{debug, info};
+use yarrbot_matrix_client::message::{MessageData, MessageDataBuilder};
+
+pub const RADARR_NAME: &str = "Radarr";
 
 /// Process webhook data pushed from Radarr. The interaction differs based on the type of [RadarrWebhook] provided.
 pub async fn handle_radarr_webhook(data: RadarrWebhook) -> Result<MessageData> {
@@ -46,7 +47,7 @@ pub async fn handle_radarr_webhook(data: RadarrWebhook) -> Result<MessageData> {
             message,
             health_type,
             wiki_url,
-        } => on_health_check(ArrType::Radarr, level, message, health_type, wiki_url),
+        } => on_health_check(RADARR_NAME, level, message, health_type, wiki_url),
     };
 
     Ok(message)

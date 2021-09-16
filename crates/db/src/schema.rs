@@ -23,7 +23,6 @@ table! {
 
     webhooks (id) {
         id -> Uuid,
-        arr_type -> Arr_type,
         username -> Text,
         password -> Bytea,
         user_id -> Uuid,
@@ -33,4 +32,8 @@ table! {
 joinable!(matrix_rooms -> webhooks (webhook_id));
 joinable!(webhooks -> users (user_id));
 
-allow_tables_to_appear_in_same_query!(matrix_rooms, users, webhooks,);
+allow_tables_to_appear_in_same_query!(
+    matrix_rooms,
+    users,
+    webhooks,
+);

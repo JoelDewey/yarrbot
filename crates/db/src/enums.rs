@@ -16,12 +16,3 @@ pub enum UserRole {
     /// relayed to.
     Administrator,
 }
-
-/// The *arr that the webhook belongs to.
-#[derive(DbEnum, Debug, Clone, AsRefStr)]
-#[PgType = "arr_type"]
-#[DieselType = "Arr_type"]
-pub enum ArrType {
-    Sonarr,
-    Radarr,
-}

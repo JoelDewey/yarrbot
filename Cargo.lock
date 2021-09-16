@@ -804,16 +804,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "firestorm"
-version = "0.4.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "31586bda1b136406162e381a3185a506cdfc1631708dd40cba2f6628d8634499"
-
-[[package]]
 name = "event-listener"
 version = "2.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7531096570974c3a9dcf9e4b8e1cede1ec26cf5046219fb3b9d897503b9be59"
+
+[[package]]
+name = "firestorm"
+version = "0.4.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "31586bda1b136406162e381a3185a506cdfc1631708dd40cba2f6628d8634499"
 
 [[package]]
 name = "flate2"

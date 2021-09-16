@@ -5,7 +5,7 @@ use crate::schema::*;
 use diesel::Queryable;
 use uuid::Uuid;
 
-/// Some chat room user that can manage [Webhook] endpoints for an [ArrType] to push to.
+/// Some chat room user that can manage [Webhook] endpoints for one of the *arr services to push to.
 #[derive(Queryable, Identifiable, Debug, Clone)]
 #[table_name = "users"]
 pub struct User {
@@ -52,15 +52,12 @@ impl From<NewUser> for User {
     }
 }
 
-/// A definition of a webhook endpoint URL for an [ArrType] to push messages to.
+/// A definition of a webhook endpoint URL for one of the *arr services to push messages to.
 #[derive(Queryable, Identifiable, Associations, Clone)]
 #[belongs_to(User)]
 #[table_name = "webhooks"]
 pub struct Webhook {
     pub id: Uuid,
-
-    /// The *arr service this webhook is for (see [ArrType]).
-    pub arr_type: ArrType,
 
     /// The username required to access the webhook endpoint.
     pub username: String,
@@ -78,9 +75,6 @@ pub struct Webhook {
 pub struct NewWebhook {
     id: Uuid,
 
-    /// The *arr service this webhook is for (see [ArrType]).
-    pub arr_type: ArrType,
-
     /// The username required to access the webhook endpoint.
     pub username: String,
 
@@ -92,10 +86,9 @@ pub struct NewWebhook {
 }
 
 impl NewWebhook {
-    pub fn new(arr_type: ArrType, username: &str, password: Vec<u8>, user: &User) -> NewWebhook {
+    pub fn new(username: &str, password: Vec<u8>, user: &User) -> NewWebhook {
         NewWebhook {
             id: Uuid::new_v4(),
-            arr_type,
             username: String::from(username),
             password,
             user_id: user.id,
@@ -107,7 +100,6 @@ impl From<NewWebhook> for Webhook {
     fn from(webhook: NewWebhook) -> Self {
         Webhook {
             id: webhook.id,
-            arr_type: webhook.arr_type,
             username: webhook.username,
             password: webhook.password,
             user_id: webhook.user_id,

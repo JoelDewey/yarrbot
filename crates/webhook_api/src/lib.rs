@@ -1,18 +1,21 @@
 //! Configuration and handling of webhook pushes from Sonarr/Radarr.
 
-use crate::facades::{handle_webhook, send_matrix_messages};
+use crate::facades::{
+    handle_radarr_webhook, handle_sonarr_webhook, send_matrix_messages, RADARR_NAME, SONARR_NAME,
+};
 use crate::models::ArrWebhook;
-use actix_web::{web, Error, HttpResponse};
+use actix_web::{web, HttpResponse};
 use anyhow::{bail, Context, Result};
 use extractors::webhook_extractor::WebhookInfo;
 use futures_util::StreamExt;
-use std::convert::AsRef;
 use std::str;
 use tracing::{error, error_span, info_span};
 use tracing_actix_web::RootSpan;
 use tracing_futures::Instrument;
 use yarrbot_db::DbPool;
+use yarrbot_matrix_client::message::MessageData;
 use yarrbot_matrix_client::MatrixClient;
+pub use yarrbot_root_span::YarrbotRootSpan;
 
 mod extractors;
 mod facades;
@@ -21,9 +24,6 @@ mod yarrbot_api_error;
 mod yarrbot_root_span;
 
 const MAX_SIZE: usize = 262_144; // Limit max payload size to 256k.
-
-use crate::yarrbot_api_error::YarrbotApiError;
-pub use yarrbot_root_span::YarrbotRootSpan;
 
 /// Configure the webhook API endpoints.
 pub fn webhook_config<T: MatrixClient + Send + Sync + 'static + Clone>(
@@ -47,6 +47,19 @@ fn deserialize_body(body: web::BytesMut) -> Result<ArrWebhook> {
     })
 }
 
+async fn handle_webhook(body: ArrWebhook, root_span: &RootSpan) -> Result<MessageData> {
+    match body {
+        ArrWebhook::Sonarr(w) => {
+            root_span.record("webhook_arr_type", &SONARR_NAME);
+            handle_sonarr_webhook(w).await
+        }
+        ArrWebhook::Radarr(w) => {
+            root_span.record("webhook_arr_type", &RADARR_NAME);
+            handle_radarr_webhook(w).await
+        }
+    }
+}
+
 async fn index<T: MatrixClient>(
     root_span: RootSpan,
     webhook_info: WebhookInfo,
@@ -54,7 +67,6 @@ async fn index<T: MatrixClient>(
     matrix_client: web::Data<T>,
     mut payload: web::Payload,
 ) -> HttpResponse {
-    root_span.record("webhook_arr_type", &webhook_info.webhook.arr_type.as_ref());
     root_span.record("webhook_short_id", &webhook_info.short_id.as_str());
 
     let deserialization_result = async move {
@@ -75,7 +87,7 @@ async fn index<T: MatrixClient>(
 
     if let Ok(body) = deserialization_result {
         let webhook = &webhook_info.webhook;
-        let message = handle_webhook(body, webhook)
+        let message = handle_webhook(body, &root_span)
             .instrument(info_span!("Converting Webhook to Matrix Message"))
             .await;
         match message {

@@ -9,14 +9,13 @@ use matrix_sdk::{room::Room, ruma::identifiers::ServerName, Client};
 use std::collections::VecDeque;
 use std::convert::TryFrom;
 use tokio::task::spawn_blocking;
+use tracing::{debug, error, info, warn};
 use yarrbot_common::crypto::{generate_password, hash};
 use yarrbot_common::short_id::ShortId;
 use yarrbot_db::actions::matrix_room_actions::MatrixRoomActions;
 use yarrbot_db::actions::webhook_actions::WebhookActions;
-use yarrbot_db::enums::ArrType;
 use yarrbot_db::models::{MatrixRoom, NewMatrixRoom, NewWebhook, User, Webhook};
 use yarrbot_db::DbPool;
-use tracing::{debug, info, warn, error};
 
 /// Add a new webhook.
 pub async fn handle_add(
@@ -46,20 +45,9 @@ pub async fn handle_add(
     };
     if data.len() < 3 {
         return MessageData::from(
-            "Adding a new webhook requires collection manager type, room alias, a username, and optionally a password."
+            "Adding a new webhook requires a room alias/ID, a username, and optionally a password.",
         );
     }
-
-    // Get collection manager type.
-    let arr_type = match data.pop_front().unwrap().to_lowercase().as_str() {
-        "sonarr" => ArrType::Sonarr,
-        "radarr" => ArrType::Radarr,
-        t => {
-            return MessageData::from(
-                format!("Unknown collection manager type \"{}\".", t).as_str(),
-            );
-        }
-    };
 
     // Join room.
     let raw_room = data.pop_front().unwrap();
@@ -89,7 +77,7 @@ pub async fn handle_add(
         Some(p) => String::from(p),
         None => generate_password(None).unwrap(),
     };
-    let webhook = match create_webhook(pool, arr_type, username, &password, &user).await {
+    let webhook = match create_webhook(pool, username, &password, &user).await {
         Ok(w) => w,
         Err(e) => {
             error!("Failed to create webhook in the database: {:?}", e);
@@ -140,13 +128,12 @@ async fn join_room(client: &Client, room_alias_id: &RoomIdOrAliasId) -> Result<R
 /// Create a webhook in the database.
 async fn create_webhook(
     pool: &DbPool,
-    arr_type: ArrType,
     username: &str,
     password: &str,
     user: &User,
 ) -> Result<Webhook> {
     let hashed = hash(String::from(password)).await?;
-    let new_webhook = NewWebhook::new(arr_type, username, hashed.to_vec(), user);
+    let new_webhook = NewWebhook::new(username, hashed.to_vec(), user);
     let conn = pool.get()?;
     Ok(spawn_blocking(move || Webhook::create_webhook(&conn, new_webhook)).await??)
 }

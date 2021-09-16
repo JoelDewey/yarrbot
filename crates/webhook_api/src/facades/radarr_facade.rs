@@ -11,6 +11,7 @@ use yarrbot_matrix_client::message::{MessageData, MessageDataBuilder};
 pub const RADARR_NAME: &str = "Radarr";
 
 /// Process webhook data pushed from Radarr. The interaction differs based on the type of [RadarrWebhook] provided.
+#[tracing::instrument(skip(data))]
 pub async fn handle_radarr_webhook(data: RadarrWebhook) -> Result<MessageData> {
     debug!("Processing Radarr webhook.");
     let message = match data {

@@ -6,13 +6,12 @@ mod sonarr_facade;
 
 use crate::models::common::ArrHealthCheckResult;
 use actix_web::web::block;
-use anyhow::Result;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 pub use radarr_facade::handle_radarr_webhook;
 pub use sonarr_facade::handle_sonarr_webhook;
 use std::option::Option::Some;
-use tracing::{error, info, warn};
+use tracing::{error, info, info_span, warn};
 use uuid::Uuid;
 use yarrbot_db::actions::matrix_room_actions::MatrixRoomActions;
 use yarrbot_db::models::MatrixRoom;
@@ -22,28 +21,56 @@ use yarrbot_matrix_client::MatrixClient;
 
 pub use radarr_facade::RADARR_NAME;
 pub use sonarr_facade::SONARR_NAME;
+use tracing_futures::Instrument;
 
 pub async fn send_matrix_messages<T: MatrixClient>(
     pool: &DbPool,
     webhook_id: &Uuid,
     client: &T,
     message: MessageData,
-) -> Result<()> {
-    let conn = pool.get()?;
+) {
+    let conn = match pool.get() {
+        Ok(c) => c,
+        Err(e) => {
+            error!(error = ?e, "Failed to retrieve database connection from the pool.");
+            return;
+        }
+    };
     let id = *webhook_id;
-    let rooms = block(move || MatrixRoom::get_by_webhook_id(&conn, &id)).await??;
+    let rooms = match block(move || MatrixRoom::get_by_webhook_id(&conn, &id)).await {
+        Ok(Ok(r)) => r,
+        Err(e) => {
+            error!(
+                error = ?e,
+                "Failed to retrieve rooms due to a blocking error."
+            );
+            Vec::new()
+        }
+        Ok(Err(e)) => {
+            error!(
+                error = ?e,
+                "Failed to retrieve rooms due to a database error."
+            );
+            Vec::new()
+        }
+    };
+    info!("Sending a webhook message to {} room(s).", rooms.len());
     let tasks = rooms.iter().map(|r| client.send_message(&message, r));
     let mut stream = tasks.collect::<FuturesUnordered<_>>();
-    while let Some(item) = stream.next().await {
+    while let Some(item) = stream
+        .next()
+        .instrument(info_span!("Sending Matrix Message"))
+        .await
+    {
         if item.is_err() {
             error!(
-                "Encountered error while posting to matrix room: {:?}",
-                item.as_ref().unwrap_err()
+                error = ?item.unwrap_err(),
+                "Encountered error while posting to matrix room."
             );
         }
     }
 
-    Ok(())
+    info!("Finished sending webhook messages.");
 }
 
 fn add_heading(builder: &mut MessageDataBuilder, key: &str, value: &str) {

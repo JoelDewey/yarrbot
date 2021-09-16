@@ -92,22 +92,14 @@ async fn index<T: MatrixClient>(
             .await;
         match message {
             Ok(m) => {
-                let send_result =
-                    send_matrix_messages(pool.get_ref(), &webhook.id, matrix_client.get_ref(), m)
-                        .instrument(info_span!("Sending Matrix Messages"))
-                        .await;
-                if let Err(e) = send_result {
-                    error!(
-                        "{:?}",
-                        e.context("Encountered error while sending webhook Matrix messages.")
-                    );
-                    return HttpResponse::InternalServerError().finish();
-                }
+                send_matrix_messages(pool.get_ref(), &webhook.id, matrix_client.get_ref(), m)
+                    .instrument(info_span!("Sending Matrix Messages"))
+                    .await;
             }
             Err(e) => {
                 error!(
-                    "{:?}",
-                    e.context("Encountered error during webhook to Matrix message conversion.")
+                    error = ?e,
+                    "Encountered error during webhook to Matrix message conversion."
                 );
                 return HttpResponse::InternalServerError().finish();
             }

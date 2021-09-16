@@ -45,12 +45,7 @@ impl ResponseError for YarrbotApiError {
 
     fn error_response(&self) -> HttpResponse {
         match self {
-            YarrbotApiError::UserError {
-                message, source, ..
-            } => {
-                if source.is_some() {
-                    error!("{:?}", source.as_ref().unwrap());
-                }
+            YarrbotApiError::UserError { message, .. } => {
                 let code = self.status_code();
                 let code_u16 = code.as_u16();
                 HttpResponse::build(code).json(YarrbotUserErrorMessage {
@@ -58,15 +53,13 @@ impl ResponseError for YarrbotApiError {
                     message,
                 })
             }
-            YarrbotApiError::InternalError(source) => {
-                error!("{:?}", source);
-                HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR).json(
-                    YarrbotUserErrorMessage {
-                        status: StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
-                        message: "Internal Server Error",
-                    },
-                )
-            }
+            YarrbotApiError::InternalError(_source) => HttpResponse::build(
+                StatusCode::INTERNAL_SERVER_ERROR,
+            )
+            .json(YarrbotUserErrorMessage {
+                status: StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
+                message: "Internal Server Error",
+            }),
         }
     }
 }

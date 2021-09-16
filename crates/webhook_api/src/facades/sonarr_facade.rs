@@ -12,6 +12,7 @@ use yarrbot_matrix_client::message::{MatrixMessageDataPart, MessageData, Message
 pub const SONARR_NAME: &str = "Sonarr";
 
 /// Process webhook data pushed from Sonarr. The interaction differs based on the type of [SonarrWebhook] provided.
+#[tracing::instrument(skip(data))]
 pub async fn handle_sonarr_webhook(data: SonarrWebhook) -> Result<MessageData> {
     debug!("Processing Sonarr webhook.");
     let message = match data {

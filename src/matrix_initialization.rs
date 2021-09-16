@@ -2,6 +2,7 @@ use anyhow::{bail, Context, Result};
 use std::env;
 use std::fs;
 use std::path::PathBuf;
+use tracing::info;
 use url::Url;
 use yarrbot_common::environment::{
     get_env_var,
@@ -9,11 +10,10 @@ use yarrbot_common::environment::{
 };
 use yarrbot_db::DbPool;
 use yarrbot_matrix_client::{YarrbotMatrixClient, YarrbotMatrixClientSettings};
-use tracing::info;
 
 fn get_homeserver_url() -> Result<Url> {
     let raw = get_env_var(MATRIX_HOMESERVER_URL)?;
-    info!("Received homeserver URL: {}", &raw);
+    info!(homeserver_url = %raw, "Found homeserver URL.");
     Url::parse(&raw).with_context(|| "Parsing of homeserver URL failed.")
 }
 

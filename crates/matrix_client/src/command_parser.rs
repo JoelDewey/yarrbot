@@ -3,7 +3,6 @@
 use crate::commands::*;
 use crate::message::MessageData;
 use anyhow::Result;
-use tracing::{debug, info, warn, error, debug_span};
 use matrix_sdk::{
     room::Room,
     ruma::events::{
@@ -18,19 +17,20 @@ use rand::prelude::*;
 use std::collections::VecDeque;
 use tokio::task::spawn_blocking;
 use tokio::time::{sleep, Duration};
+use tracing::{debug, error, info, warn};
 use yarrbot_db::DbPool;
 use yarrbot_db::{actions::user_actions::UserActions, models::User};
 
 const YARRBOT_COMMAND: &str = "!yarrbot";
 
 /// Metadata to use when executing the command.
+#[derive(Debug)]
 pub struct CommandMetadata {
     pub user: String,
     pub is_direct_message: bool,
 }
 
 /// Parses commands and reacts to events from the Matrix homeserver.
-#[derive(Clone)] // TODO: Is this safe/smart to wrap in an Arc instead?
 pub struct CommandParser {
     client: Client,
     pool: DbPool,
@@ -43,22 +43,15 @@ impl CommandParser {
         Self { client, pool }
     }
 
+    #[tracing::instrument(skip(self, room, event), fields(event.sender = %event.sender, room.room_id = %room.room_id(), room.name))]
     pub async fn on_room_message(&self, room: Room, event: &SyncMessageEvent<MessageEventContent>) {
+        let room_name = room.name().unwrap_or_else(|| String::from("(No Name)"));
+        tracing::Span::current().record("room.name", &room_name.as_str());
         // Don't respond to messages posted by our bot.
         if event.sender == self.client.user_id().await.unwrap() {
             debug!("Ignoring message posted by the bot itself.");
             return;
         }
-
-        let span = debug_span!("Message Received");
-        span.in_scope(|| {
-            debug!(
-                "Received message from {} in room {} ({}).",
-                event.sender.as_str(),
-                room.name().unwrap_or_else(|| String::from("(No Name)")),
-                room.room_id().as_str()
-            );
-        });
 
         // Based off of: https://github.com/matrix-org/matrix-rust-sdk/blob/0.3.0/matrix_sdk/examples/command_bot.rs
         if let Room::Joined(room) = room {
@@ -82,7 +75,7 @@ impl CommandParser {
             let mut split = message_body.split_whitespace();
             let first = split.next().unwrap_or("").to_lowercase();
             if first == YARRBOT_COMMAND {
-                debug!("Received !yarrbot command.");
+                info!("Received !yarrbot command.");
                 let key = split.next().unwrap_or("").to_lowercase();
                 let message_data = if !key.is_empty() {
                     let metadata = CommandMetadata {
@@ -92,7 +85,7 @@ impl CommandParser {
                         is_direct_message: match room.members().await {
                             Ok(v) => v.len() == 2,
                             Err(e) => {
-                                error!("Failed to retrieve the number of members in the room with ID {}: {:?}", room.room_id().as_str(), e);
+                                error!(error = ?e, "Failed to retrieve the number of members in the room.");
                                 return;
                             }
                         },
@@ -102,11 +95,11 @@ impl CommandParser {
                         .await
                         .unwrap_or_else(|e| e.into())
                 } else {
-                    debug!("Command {} unrecognized.", &key);
+                    debug!(key = &key.as_str(), "Command unrecognized.");
                     MessageData::from("Unrecognized command.")
                 };
 
-                debug!("Sending response to command.");
+                info!("Sending response to command.");
                 let send_result = room
                     .send(
                         AnyMessageEventContent::RoomMessage(message_data.into()),
@@ -114,7 +107,7 @@ impl CommandParser {
                     )
                     .await;
                 if let Err(e) = send_result {
-                    error!("Encountered error while responding to command: {:?}", e);
+                    error!(error = ?e, "Encountered error while responding to command.");
                 }
             } else {
                 debug!("Received first token \"{}\", ignoring.", &first);
@@ -122,11 +115,14 @@ impl CommandParser {
         }
     }
 
+    #[tracing::instrument(skip(self, room, room_member), fields(room.room_id = %room.room_id(), room.name, username = %room_member.sender))]
     pub async fn on_stripped_state_member(
         &self,
         room: Room,
         room_member: &StrippedStateEvent<MemberEventContent>,
     ) {
+        let room_name = room.name().unwrap_or_else(|| String::from("(No Name)"));
+        tracing::Span::current().record("room.name", &room_name.as_str());
         // Based off of https://github.com/matrix-org/matrix-rust-sdk/blob/0.3.0/matrix_sdk/examples/autojoin.rs
 
         // Don't respond to invites if they're not meant for us.
@@ -137,21 +133,16 @@ impl CommandParser {
 
         if let Room::Invited(room) = room {
             // Don't let users that aren't admins invite the bot to rooms.
-            let room_name = room
-                .display_name()
-                .await
-                .unwrap_or_else(|_| String::from("(Unknown Name)"));
-            let room_id = room.room_id().as_str();
             let username = room_member.sender.as_str();
             match user_exists(&self.pool, username).await {
                 Ok(exists) => {
                     if !exists {
                         match room.reject_invitation().await {
                             Ok(_) => {
-                                warn!("\"{}\" attempted to invite the bot to room \"{}\" ({}) but is not authorized to do so.", username, &room_name, room_id);
+                                warn!("User attempted to invite the bot to the room but is not authorized to do so.");
                             }
                             Err(e) => {
-                                error!("Failed to reject room invitation from \"{}\" ({}) for room \"{}\": {:?}", username, &room_name, room_id, e);
+                                error!(error = ?e, "Failed to reject room invitation.");
                             }
                         };
                         return;
@@ -159,8 +150,8 @@ impl CommandParser {
                 }
                 Err(e) => {
                     error!(
-                        "Error encountered while checking if inviting user exists: {:?}",
-                        e
+                        error = ?e,
+                        "Error encountered while checking if inviting user exists."
                     );
                     return;
                 }
@@ -175,10 +166,7 @@ impl CommandParser {
             for i in 0..5 {
                 match room.accept_invitation().await {
                     Ok(_) => {
-                        info!(
-                            "Joined room \"{}\" ({}) after invitation from \"{}\".",
-                            &room_name, room_id, username
-                        );
+                        info!("Joined room after invitation.");
                         return;
                     }
                     Err(e) => {
@@ -186,8 +174,11 @@ impl CommandParser {
                         let jitter: u64 = dist.sample(&mut rng);
                         let delay = base + jitter;
                         debug!(
-                            "Encountered error while attempting to join room \"{}\" ({}), delaying for {} ms: {:?}",
-                            room_id, &room_name, delay, e
+                            error = ?e,
+                            base = %base,
+                            jitter = %jitter,
+                            delay = %delay,
+                            "Encountered error while attempting to join room, delaying before the next attempt."
                         );
                         sleep(Duration::from_millis(delay)).await;
                         last_error = Some(e);
@@ -195,15 +186,11 @@ impl CommandParser {
                 }
             }
 
-            error!(
-                "Failed to join room \"{}\" ({}) after five attempts; last error encountered: {:?}",
-                room_id,
-                &room_name,
-                last_error.as_ref().unwrap()
-            );
+            error!(last_error = ?last_error.unwrap(), "Failed to join room after five attempts.");
         }
     }
 
+    #[tracing::instrument(skip(self))]
     async fn execute_command(
         &self,
         command: &str,
@@ -211,16 +198,15 @@ impl CommandParser {
         data: VecDeque<&str>,
     ) -> Result<MessageData> {
         let result = match command {
-            "ping" => {
-                debug!("Received ping command.");
-                ping_command::get_message()
-            }
+            "ping" => ping_command::get_message(),
             "webhook" => {
-                debug!("Received webhook command.");
                 webhook_command::handle_webhook_command(metadata, &self.client, &self.pool, data)
                     .await?
             }
-            _ => MessageData::from("Unrecognized command."),
+            _ => {
+                info!("Received unrecognized command.");
+                MessageData::from("Unrecognized command.")
+            }
         };
         Ok(result)
     }
@@ -232,7 +218,7 @@ async fn user_exists(pool: &DbPool, username: &str) -> Result<bool> {
     let u = spawn_blocking(move || User::try_get_by_username(&conn, username2.as_str())).await??;
     match u {
         Some(u) => {
-            debug!("User \"{}\" exists with ID {}.", username, u.id.to_string());
+            debug!(username = %username, id = %u.id.to_string(), "User exists.");
             Ok(true)
         }
         None => Ok(false),

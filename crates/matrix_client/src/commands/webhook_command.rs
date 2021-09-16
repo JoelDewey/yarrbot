@@ -9,6 +9,7 @@ use std::collections::VecDeque;
 use yarrbot_db::DbPool;
 
 /// Handles choosing which webhook subcommand to execute.
+#[tracing::instrument(skip(client, pool, data))]
 pub async fn handle_webhook_command(
     metadata: CommandMetadata,
     client: &Client,

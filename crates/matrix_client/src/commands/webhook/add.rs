@@ -9,7 +9,7 @@ use matrix_sdk::{room::Room, ruma::identifiers::ServerName, Client};
 use std::collections::VecDeque;
 use std::convert::TryFrom;
 use tokio::task::spawn_blocking;
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 use yarrbot_common::crypto::{generate_password, hash};
 use yarrbot_common::short_id::ShortId;
 use yarrbot_db::actions::matrix_room_actions::MatrixRoomActions;
@@ -18,25 +18,28 @@ use yarrbot_db::models::{MatrixRoom, NewMatrixRoom, NewWebhook, User, Webhook};
 use yarrbot_db::DbPool;
 
 /// Add a new webhook.
+#[tracing::instrument(skip(client, pool, data), fields(raw_room, webhook_user, has_password))]
 pub async fn handle_add(
     metadata: CommandMetadata,
     client: &Client,
     pool: &DbPool,
     mut data: VecDeque<&str>,
 ) -> MessageData {
+    info!("Received webhook add command.");
+    let span = tracing::Span::current();
     let user = match get_user(pool, &metadata.user).await {
         Ok(Some(u)) => u,
         Ok(None) => {
             warn!(
-                "{} attempted to add a webhook but is not authorized to do so.",
-                &metadata.user
+                username = %metadata.user.as_str(),
+                "User attempted to add a webhook but is not authorized to do so."
             );
             return MessageData::from("You are not allowed to modify webhooks.");
         }
         Err(e) => {
             error!(
-                "Encountered error while retrieving user from the database: {:?}",
-                e
+                error = ?e,
+                "Encountered error while retrieving user from the database."
             );
             return MessageData::from(
                 "Yarrbot encountered an error communicating with the database.",
@@ -44,6 +47,7 @@ pub async fn handle_add(
         }
     };
     if data.len() < 3 {
+        warn!("Not enough parameters provided to add command.");
         return MessageData::from(
             "Adding a new webhook requires a room alias/ID, a username, and optionally a password.",
         );
@@ -51,10 +55,11 @@ pub async fn handle_add(
 
     // Join room.
     let raw_room = data.pop_front().unwrap();
+    span.record("raw_room", &raw_room);
     let room_alias = match RoomIdOrAliasId::try_from(raw_room) {
         Ok(r) => r,
         Err(e) => {
-            debug!("Unable to parse the Room ID or Alias ID: {:?}", e);
+            warn!(error = ?e, "Unable to parse the Room ID or Alias ID.");
             return MessageData::from(
                 format!("Could not parse room or alias \"{}\".", raw_room).as_str(),
             );
@@ -63,7 +68,7 @@ pub async fn handle_add(
     let room = match join_room(client, &room_alias).await {
         Ok(r) => r,
         Err(e) => {
-            error!("Encountered an error while joining the room: {:?}", e);
+            error!(error = ?e, "Encountered an error while joining the room.");
             return MessageData::from(
                 "Encountered issue while attempting to join room. You may need to invite yarrbot to the room first."
             );
@@ -73,32 +78,34 @@ pub async fn handle_add(
     // Create webhook.
     let room_id = room.room_id().as_str();
     let username = data.pop_front().unwrap();
+    span.record("webhook_user", &username);
     let password = match data.pop_front() {
-        Some(p) => String::from(p),
-        None => generate_password(None).unwrap(),
+        Some(p) => {
+            span.record("has_password", &true);
+            String::from(p)
+        }
+        None => {
+            span.record("has_password", &false);
+            generate_password(None).unwrap()
+        }
     };
     let webhook = match create_webhook(pool, username, &password, &user).await {
         Ok(w) => w,
         Err(e) => {
-            error!("Failed to create webhook in the database: {:?}", e);
+            error!(error = ?e, "Failed to create webhook in the database.");
             return MessageData::from("Failed to create new webhook.");
         }
     };
-    match create_matrixroom(pool, room_id, &webhook).await {
-        Ok(m) => m,
-        Err(e) => {
-            error!(
-                "Failed to create matrix room record in the database: {:?}",
-                e
-            );
-            return MessageData::from(
-                "There was an issue completing the webhook; you may need to remove it and then recreate it."
-            );
-        }
-    };
+    if let Err(e) = create_matrixroom(pool, room_id, &webhook).await {
+        let uuid = &webhook.id;
+        error!(error = ?e, webhook_uuid = %uuid, "Failed to create Matrix Room for webhook.");
+        return MessageData::from(
+            "There was an issue completing the webhook; you may need to remove it and then recreate it."
+        );
+    }
 
     let webhook_id = webhook.id.to_short_id();
-    info!("Webhook created: {} ({})", &webhook_id, &webhook.id);
+    info!(webhook_id = %webhook_id, "Webhook created.");
     let mut builder = MessageDataBuilder::new();
     builder.add_line(&format!("Set up a new webhook for {}.", raw_room));
     builder.add_key_value_with_code("ID", &webhook_id);

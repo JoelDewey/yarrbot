@@ -2,8 +2,10 @@
 
 use anyhow::Error;
 use matrix_sdk::ruma::events::room::message::MessageEventContent;
+use std::fmt::Debug;
 
 /// Formatted message data to send via Matrix.
+#[derive(Debug)]
 pub struct MessageData {
     /// The plain text version of the message to send to clients that don't support HTML messages.
     pub plain: String,

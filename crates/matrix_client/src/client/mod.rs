@@ -135,6 +135,8 @@ impl YarrbotMatrixClient {
 #[async_trait]
 impl MatrixClient for YarrbotMatrixClient {
     async fn send_message(&self, message: &MessageData, room: &MatrixRoom) -> Result<()> {
+        info!(room.matrix_id = %room.room_id, "Sending Matrix message to room.");
+        debug!(message = ?message, "Sending Matrix message with the given contents.");
         let room_id = RoomId::try_from(&room.room_id[..])?;
         let content = AnyMessageEventContent::RoomMessage(message.into());
 

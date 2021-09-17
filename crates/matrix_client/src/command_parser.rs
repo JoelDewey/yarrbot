@@ -203,6 +203,7 @@ impl CommandParser {
                 webhook_command::handle_webhook_command(metadata, &self.client, &self.pool, data)
                     .await?
             }
+            "sourcecode" => sourcecode_command::get_message(),
             _ => {
                 info!("Received unrecognized command.");
                 MessageData::from("Unrecognized command.")

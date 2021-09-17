@@ -2,11 +2,11 @@
 
 use crate::DbPool;
 use anyhow::{Context, Result};
-use tracing::info;
 use diesel::{
     r2d2::{ConnectionManager, Pool},
     PgConnection,
 };
+use tracing::info;
 use yarrbot_common::environment::{
     get_env_var,
     variables::{DB_POOL, DB_URL},
@@ -37,14 +37,11 @@ fn get_database_url() -> Result<String> {
 }
 
 fn get_pool_size() -> u32 {
-    match get_env_var(DB_POOL) {
+    let size = match get_env_var(DB_POOL) {
         Ok(size) => size.parse().unwrap_or(DB_POOL_DEFAULT),
-        Err(_) => {
-            info!(
-                "No value found for {}, using the default value {}.",
-                DB_POOL, DB_POOL_DEFAULT
-            );
-            DB_POOL_DEFAULT
-        }
-    }
+        Err(_) => DB_POOL_DEFAULT,
+    };
+    info!("Using connection pool size of {}", size);
+
+    size
 }

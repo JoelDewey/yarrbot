@@ -1,4 +1,6 @@
-use crate::command_parser;
+mod on_room_message;
+mod on_stripped_state_member;
+
 use crate::message::MessageData;
 use crate::MatrixClient;
 use anyhow::{Context, Result};
@@ -14,6 +16,8 @@ use matrix_sdk::{
     ruma::events::AnyMessageEventContent, ruma::identifiers::RoomId, Client, ClientConfig,
     SyncSettings,
 };
+use on_room_message::on_room_message;
+use on_stripped_state_member::on_stripped_state_member;
 use std::convert::TryFrom;
 use std::path::PathBuf;
 use tokio::task::spawn_blocking;
@@ -81,26 +85,23 @@ impl YarrbotMatrixClient {
         client.sync_once(SyncSettings::default()).await?;
         YarrbotMatrixClient::init(&client, &pool).await?;
         debug!("Setting CommandParser event handler.");
-        // The registration of the event handlers and all of the cloning is based on the Matrix SDK's docs for
-        // version 0.4.0. Maybe revisit this later and see if there's a cleaner way to do this?
         client
             .register_event_handler({
-                let pool2 = pool.clone();
+                let pool = pool.clone();
                 move |ev: SyncMessageEvent<MessageEventContent>, room: Room, client: Client| {
-                    let parser = command_parser::CommandParser::new(client, pool2.clone());
+                    let pool = pool.clone();
                     async move {
-                        parser.on_room_message(room, &ev).await;
+                        on_room_message(&client, &pool, &room, &ev).await;
                     }
                 }
             })
-            .await;
-        client
+            .await
             .register_event_handler({
-                let pool2 = pool.clone();
+                let pool = pool.clone();
                 move |ev: StrippedStateEvent<MemberEventContent>, room: Room, client: Client| {
-                    let parser = command_parser::CommandParser::new(client, pool2.clone());
+                    let pool = pool.clone();
                     async move {
-                        parser.on_stripped_state_member(room, &ev).await;
+                        on_stripped_state_member(&client, &pool, room, &ev).await;
                     }
                 }
             })

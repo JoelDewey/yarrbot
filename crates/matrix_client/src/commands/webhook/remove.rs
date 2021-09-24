@@ -1,7 +1,7 @@
 //! Supporting functions for removing webhooks.
 
 use super::get_user;
-use crate::command_parser::CommandMetadata;
+use crate::commands::CommandMetadata;
 use crate::message::MessageData;
 use anyhow::Result;
 use std::collections::VecDeque;

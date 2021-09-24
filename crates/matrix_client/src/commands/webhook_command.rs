@@ -1,7 +1,7 @@
 //! Entrypoint for `!yarrbot webhook ...` commands.
 
-use crate::command_parser::CommandMetadata;
 use crate::commands::webhook::{handle_add, handle_list, handle_remove};
+use crate::commands::CommandMetadata;
 use crate::message::MessageData;
 use anyhow::{bail, ensure, Result};
 use matrix_sdk::Client;

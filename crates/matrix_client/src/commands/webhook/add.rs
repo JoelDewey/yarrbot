@@ -1,7 +1,7 @@
 //! Supporting functions for adding a new webhook.
 
 use super::get_user;
-use crate::command_parser::CommandMetadata;
+use crate::commands::CommandMetadata;
 use crate::message::{MessageData, MessageDataBuilder};
 use anyhow::{anyhow, bail, Result};
 use matrix_sdk::ruma::identifiers::RoomIdOrAliasId;

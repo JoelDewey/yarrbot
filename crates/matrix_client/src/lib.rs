@@ -1,5 +1,4 @@
 mod client;
-mod command_parser;
 mod commands;
 pub mod message;
 

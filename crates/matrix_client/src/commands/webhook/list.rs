@@ -1,7 +1,7 @@
 //! Supporting functions for listing all webhooks.
 
 use super::get_user;
-use crate::command_parser::CommandMetadata;
+use crate::commands::CommandMetadata;
 use crate::message::{MatrixMessageDataPart, MessageData, MessageDataBuilder};
 use anyhow::Result;
 use std::collections::VecDeque;

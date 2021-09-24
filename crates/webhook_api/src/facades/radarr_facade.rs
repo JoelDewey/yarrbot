@@ -186,7 +186,7 @@ fn on_movie_file_delete(
     builder.add_key_value(
         "Reason",
         delete_reason
-            .unwrap_or(String::from("No Reason Given"))
+            .unwrap_or_else(|| String::from("No Reason Given"))
             .as_str(),
     );
     builder.add_key_value_with_code("Path", &movie_file.relative_path);

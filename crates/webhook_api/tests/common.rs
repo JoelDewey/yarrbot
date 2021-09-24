@@ -4,15 +4,15 @@ use async_trait::async_trait;
 use lazy_static::{initialize, lazy_static};
 use std::sync::{Arc, Once};
 use tokio::sync::RwLock;
+use tracing::level_filters::LevelFilter;
+use tracing_log::LogTracer;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::{EnvFilter, Registry};
+use yarrbot_common::environment::variables::LOG_FILTER;
 use yarrbot_db::models::MatrixRoom;
 use yarrbot_db::{build_pool, DbPool};
 use yarrbot_matrix_client::message::MessageData;
 use yarrbot_matrix_client::MatrixClient;
-use tracing_log::LogTracer;
-use tracing_subscriber::{EnvFilter, Registry};
-use yarrbot_common::environment::variables::LOG_FILTER;
-use tracing::level_filters::LevelFilter;
-use tracing_subscriber::layer::SubscriberExt;
 
 static INIT: Once = Once::new();
 
@@ -38,7 +38,8 @@ pub fn setup() {
         let subscriber = Registry::default()
             .with(filter)
             .with(tracing_subscriber::fmt::Layer::default().with_writer(non_blocking_writer));
-        tracing::subscriber::set_global_default(subscriber).expect("Could not set global subscriber for tracing.");
+        tracing::subscriber::set_global_default(subscriber)
+            .expect("Could not set global subscriber for tracing.");
     });
 }
 

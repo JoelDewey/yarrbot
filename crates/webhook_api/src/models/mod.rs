@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
-use crate::models::sonarr::SonarrWebhook;
 use crate::models::radarr::RadarrWebhook;
+use crate::models::sonarr::SonarrWebhook;
+use serde::{Deserialize, Serialize};
 
 pub mod common;
 pub mod radarr;
@@ -15,7 +15,7 @@ pub enum ArrWebhook {
 
 #[cfg(test)]
 mod tests {
-    use crate::models::sonarr::{SonarrWebhook, SonarrSeries, SonarrSeriesType, SonarrEpisode};
+    use crate::models::sonarr::{SonarrEpisode, SonarrSeries, SonarrSeriesType, SonarrWebhook};
     use crate::models::ArrWebhook;
 
     const TEST_BODY: &str = "{

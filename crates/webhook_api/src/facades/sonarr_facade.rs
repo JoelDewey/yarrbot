@@ -84,7 +84,7 @@ fn on_grab(
     add_heading(&mut builder, "Series Grabbed", &series.title);
     add_quality(&mut builder, &release.quality);
     builder.break_character();
-    add_episodes(&mut builder, &episodes);
+    add_episodes(&mut builder, episodes);
 
     builder.to_message_data()
 }
@@ -190,7 +190,9 @@ fn on_episode_file_delete(
     add_heading(&mut builder, "Series Episode Files Deleted", &series.title);
     builder.add_key_value(
         "Reason",
-        reason.unwrap_or(String::from("No Reason Given")).as_str(),
+        reason
+            .unwrap_or_else(|| String::from("No Reason Given"))
+            .as_str(),
     );
     let q = if let Some(quality) = &episode_file.quality {
         quality.quality.name.clone()

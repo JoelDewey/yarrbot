@@ -3,8 +3,8 @@ use actix_web::http::header::ContentType;
 use actix_web::http::Method;
 use actix_web::http::StatusCode;
 use actix_web::{test, web, App};
-use yarrbot_webhook_api::{webhook_config, YarrbotRootSpan};
 use tracing_actix_web::TracingLogger;
+use yarrbot_webhook_api::{webhook_config, YarrbotRootSpan};
 
 mod common;
 

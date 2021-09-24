@@ -50,7 +50,7 @@ impl YarrbotMatrixClient {
         let matrix_rooms = spawn_blocking(move || MatrixRoom::get_many(&conn, None)).await??;
         let join_room_tasks = matrix_rooms
             .iter()
-            .map(|r| &r.room_id[..])
+            .map(|r| r.room_id.as_str())
             .unique()
             .map(|room_id| join_room(client, room_id));
         let mut stream = join_room_tasks.collect::<FuturesUnordered<_>>();

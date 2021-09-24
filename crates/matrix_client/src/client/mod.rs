@@ -21,7 +21,8 @@ use on_stripped_state_member::on_stripped_state_member;
 use std::convert::TryFrom;
 use std::path::PathBuf;
 use tokio::task::spawn_blocking;
-use tracing::{debug, info};
+use tracing::{debug, error, error_span, info};
+use tracing_futures::Instrument;
 use url::Url;
 use yarrbot_db::actions::matrix_room_actions::MatrixRoomActions;
 use yarrbot_db::models::MatrixRoom;
@@ -53,8 +54,15 @@ impl YarrbotMatrixClient {
             .unique()
             .map(|room_id| join_room(client, room_id));
         let mut stream = join_room_tasks.collect::<FuturesUnordered<_>>();
-        while let Some(_item) = stream.next().await {
-            // TODO: Fix logging here.
+        while let Some(item) = stream
+            .next()
+            .instrument(error_span!("Joining Saved Matrix Rooms"))
+            .await
+        {
+            if item.is_err() {
+                let err = item.unwrap_err();
+                error!(error = ?err, "Unable to join room.");
+            }
         }
 
         Ok(())

@@ -1,128 +1,31 @@
 //! Models intended to be used when deserializing webhook bodies from Sonarr.
 //! Source: https://github.com/Sonarr/Sonarr/tree/3c45349404f59064d1c8db0549401189c456e4c0/src/NzbDrone.Core/Notifications/Webhook
 
-use crate::models::common::ArrHealthCheckResult;
-use chrono::{DateTime, NaiveDate, Utc};
+mod episode;
+mod episode_deleted_file;
+mod episode_file;
+mod episode_list;
+mod extended_episode;
+mod extended_episode_rating;
+mod quality;
+mod quality_model;
+mod release;
+mod renamed_episode_file;
+mod series;
+
+pub use crate::models::common::ArrHealthCheckResult;
+pub use episode::SonarrEpisode;
+pub use episode_deleted_file::SonarrEpisodeDeletedFile;
+pub use episode_file::SonarrEpisodeFile;
+pub use episode_list::SonarrEpisodeList;
+pub use extended_episode::SonarrExtendedEpisode;
+pub use extended_episode_rating::SonarrExtendedEpisodeRating;
+pub use quality::SonarrQuality;
+pub use quality_model::SonarrQualityModel;
+pub use release::SonarrRelease;
+pub use renamed_episode_file::SonarrRenamedEpisodeFile;
 use serde::{Deserialize, Serialize};
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub enum SonarrSeriesType {
-    Standard,
-    Daily,
-    Anime,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct SonarrSeries {
-    pub id: u64,
-    pub title: String,
-    pub path: String,
-    pub tvdb_id: Option<u32>,
-    pub tv_maze_id: Option<u32>,
-    pub imdb_id: Option<String>,
-    #[serde(rename = "type")]
-    pub series_type: SonarrSeriesType,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct SonarrEpisode {
-    pub id: u64,
-    pub episode_number: u32,
-    pub season_number: u32,
-    pub title: String,
-    pub air_date: Option<NaiveDate>,
-    pub air_date_utc: Option<DateTime<Utc>>,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct SonarrRelease {
-    pub quality: Option<String>,
-    pub quality_version: Option<u32>,
-    pub release_group: Option<String>,
-    pub release_title: Option<String>,
-    pub indexer: Option<String>,
-    pub size: Option<u64>,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct SonarrQuality {
-    pub id: u64,
-    pub name: String,
-    pub source: Option<String>,
-    pub resolution: u32,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct SonarrQualityModel {
-    pub quality: SonarrQuality,
-    // revision omitted
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct SonarrExtendedEpisodeRating {
-    pub votes: u32,
-    pub value: serde_json::Number,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct SonarrExtendedEpisode {
-    #[serde(flatten)]
-    pub base: SonarrEpisode,
-    pub overview: Option<String>,
-    pub monitored: bool,
-    pub ratings: SonarrExtendedEpisodeRating,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct SonarrEpisodeList {
-    pub value: Vec<SonarrExtendedEpisode>,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct SonarrEpisodeDeletedFile {
-    pub id: u64,
-    pub relative_path: String,
-    pub path: String,
-    pub quality: Option<SonarrQualityModel>,
-    pub release_group: Option<String>,
-    pub scene_name: Option<String>,
-    pub size: Option<u64>,
-    pub date_added: Option<DateTime<Utc>>,
-    pub episodes: Option<SonarrEpisodeList>,
-    // mediaInfo omitted
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct SonarrEpisodeFile {
-    pub id: u64,
-    pub relative_path: String,
-    pub path: String,
-    pub quality: Option<String>,
-    pub quality_version: Option<u32>,
-    pub release_group: Option<String>,
-    pub scene_name: Option<String>,
-    pub size: Option<u64>,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct SonarrRenamedEpisodeFile {
-    pub relative_path: Option<String>,
-    pub path: Option<String>,
-    pub previous_relative_path: Option<String>,
-    pub previous_path: Option<String>,
-}
+pub use series::{SonarrSeries, SonarrSeriesType};
 
 /// Represents the various webhooks that Sonarr can send. The type of webhook is determined by
 /// the webhook's `eventType` property in the body.
@@ -181,7 +84,7 @@ pub enum SonarrWebhook {
 #[cfg(test)]
 mod test {
     use super::*;
-    use chrono::DateTime;
+    use chrono::{DateTime, NaiveDate};
 
     const GRAB_BODY: &str = "{
     \"eventType\": \"Grab\",

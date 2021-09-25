@@ -5,8 +5,10 @@ use crate::yarrbot_api_error::YarrbotApiError;
 use actix_web::dev::Payload;
 use actix_web::web::{block, Data};
 use actix_web::{Error, FromRequest, HttpRequest};
+use anyhow::Error as AnyhowError;
 use std::future::Future;
 use std::pin::Pin;
+use tracing::{debug, error, info};
 use uuid::Uuid;
 use yarrbot_common::{crypto::verify, short_id::ShortId};
 use yarrbot_db::actions::webhook_actions::WebhookActions;
@@ -16,6 +18,7 @@ use yarrbot_db::DbPool;
 /// Wrapper struct for the final webhook model from the database.
 pub struct WebhookInfo {
     pub webhook: Webhook,
+    pub short_id: String,
 }
 
 /// Represents the decoded username and password from the webhook.
@@ -56,6 +59,7 @@ impl FromRequest for WebhookInfo {
     type Error = Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self, Self::Error>>>>;
 
+    #[tracing::instrument(name = "webhook_extractor", skip(req, _payload))]
     fn from_request(req: &HttpRequest, _payload: &mut Payload) -> Self::Future {
         let pool = req.app_data::<Data<DbPool>>().unwrap().clone();
         let webhook_id = String::from(req.match_info().get("webhook_id").unwrap());
@@ -64,75 +68,72 @@ impl FromRequest for WebhookInfo {
             None => String::from(""),
         };
 
-        debug!("Processing webhook request with ID {}.", &webhook_id);
+        debug!("Processing webhook request.");
         Box::pin(async move {
             // Get login information for the webhook.
-            debug!(
-                "Attempting to retrieve login information for webhook {}.",
-                &webhook_id
-            );
+            debug!("Attempting to retrieve login information for webhook.");
             let webhook_auth = match get_webhook_auth(&auth_header) {
                 Some(a) => a,
-                _ => return Err(YarrbotApiError::unauthorized().into()),
+                _ => return Err(YarrbotApiError::unauthorized(None).into()),
             };
             // Get the UUID for the webhook from the short ID.
-            debug!("Converting webhook {} back into a UUID.", &webhook_id);
+            debug!("Converting webhook short ID back into a UUID.");
             let uuid = match Uuid::from_short_id(&webhook_id) {
                 Ok(u) => u,
-                _ => return Err(YarrbotApiError::not_found().into()),
+                _ => return Err(YarrbotApiError::not_found(None).into()),
             };
             let uuid2 = uuid.clone();
 
             // Retrieve the webhook from the database.
-            debug!("Getting webhook {} from the database.", &webhook_id);
+            debug!("Getting webhook from the database.");
             let conn = match pool.get_ref().get() {
                 Ok(c) => c,
                 Err(e) => {
-                    error!("Encountered an error while retrieving connection: {}", e);
-                    return Err(YarrbotApiError::internal_server_error().into());
+                    return Err(YarrbotApiError::internal_server_error(
+                        AnyhowError::new(e)
+                            .context("Encountered an error while retrieving connection."),
+                    )
+                    .into());
                 }
             };
             let optional_webhook = match block(move || Webhook::try_get(&conn, &uuid)).await {
                 Ok(Ok(w)) => w,
                 Err(e) => {
                     error!(
-                        "Failed to retrieve webhook with ID \"{}\" from the database: {:?}",
-                        uuid2, e
+                        webhook_id = %uuid2.to_string(),
+                        "Failed to retrieve webhook with from the database."
                     );
-                    return Err(YarrbotApiError::internal_server_error().into());
+                    return Err(YarrbotApiError::internal_server_error(AnyhowError::new(e)).into());
                 }
                 Ok(Err(e)) => {
                     error!(
-                        "Failed to retrieve webhook with ID \"{}\" from the database: {:?}",
-                        uuid2, e
+                        webhook_id = %uuid2.to_string(),
+                        "Failed to retrieve webhook with from the database."
                     );
-                    return Err(YarrbotApiError::internal_server_error().into());
+                    return Err(YarrbotApiError::internal_server_error(AnyhowError::new(e)).into());
                 }
             };
             let webhook = match optional_webhook {
                 Some(w) => {
-                    debug!("Webhook {} found in database.", &webhook_id);
+                    debug!("Webhook found in database.");
                     w
                 }
                 _ => {
-                    debug!("Failed to find webhook {} in the database.", &webhook_id);
-                    return Err(YarrbotApiError::not_found().into());
+                    debug!("Failed to find webhook in the database.");
+                    return Err(YarrbotApiError::not_found(None).into());
                 }
             };
 
             // Check if the user is authorized for the webhook and return it if so.
             if is_authorized_for_webhook(webhook_auth, &webhook).await {
-                info!(
-                    "Webhook {} ({}) retrieved and authorized.",
-                    &webhook_id, &webhook.id
-                );
-                Ok(WebhookInfo { webhook })
+                info!("Webhook retrieved and authorized.");
+                Ok(WebhookInfo {
+                    webhook,
+                    short_id: webhook_id,
+                })
             } else {
-                debug!(
-                    "Current request is not authorized for webhook {}.",
-                    &webhook_id
-                );
-                Err(YarrbotApiError::unauthorized().into())
+                debug!("Current request is not authorized for webhook.");
+                Err(YarrbotApiError::unauthorized(None).into())
             }
         })
     }

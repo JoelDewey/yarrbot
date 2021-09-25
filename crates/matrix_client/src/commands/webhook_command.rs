@@ -1,7 +1,7 @@
 //! Entrypoint for `!yarrbot webhook ...` commands.
 
-use crate::command_parser::CommandMetadata;
 use crate::commands::webhook::{handle_add, handle_list, handle_remove};
+use crate::commands::CommandMetadata;
 use crate::message::MessageData;
 use anyhow::{bail, ensure, Result};
 use matrix_sdk::Client;
@@ -9,6 +9,7 @@ use std::collections::VecDeque;
 use yarrbot_db::DbPool;
 
 /// Handles choosing which webhook subcommand to execute.
+#[tracing::instrument(skip(client, pool, data))]
 pub async fn handle_webhook_command(
     metadata: CommandMetadata,
     client: &Client,

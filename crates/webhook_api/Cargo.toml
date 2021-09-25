@@ -1,6 +1,6 @@
 [package]
 name = "yarrbot_webhook_api"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -10,13 +10,16 @@ actix-web = {version = "4.0.0-beta.8"}
 serde = { version = "1.0.126", features = ["derive"] }
 chrono = { version = "0.4", features = ["serde"] }
 serde_json = "1.0.66"
-log = "0.4"
-env_logger = "0.8"
+tracing = "0.1"
+tracing-subscriber = "0.2"
+tracing-futures = "0.2.5"
+tracing-actix-web = "0.4.0-beta.12"
 futures-util = "0.3.16"
 futures = { version = "0.3.16", default-features = false, features = ["std", "async-await"] }
 uuid = { version = "= 0.8.2", features = ["v4"] }
 base64 = "0.13.0"
 anyhow = "1.0.42"
+thiserror = "1.0"
 yarrbot_db = { path = "../db" }
 yarrbot_common = { path = "../common" }
 yarrbot_matrix_client = { path = "../matrix_client" }
@@ -27,3 +30,5 @@ actix-rt = "2.2.0"
 lazy_static = "1.4.0"
 async-trait = "0.1.51"
 tokio = { version = "1", features = ["sync"] }
+tracing-log = "0.1.2"
+tracing-appender = "0.1.2"

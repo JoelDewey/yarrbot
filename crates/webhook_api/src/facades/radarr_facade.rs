@@ -5,11 +5,14 @@ use crate::models::radarr::{
     RadarrMovie, RadarrMovieFile, RadarrRelease, RadarrRemoteMovie, RadarrWebhook,
 };
 use anyhow::Result;
-use yarrbot_db::enums::ArrType;
+use tracing::{debug, info};
 use yarrbot_matrix_client::message::{MessageData, MessageDataBuilder};
 
+pub const RADARR_NAME: &str = "Radarr";
+
 /// Process webhook data pushed from Radarr. The interaction differs based on the type of [RadarrWebhook] provided.
-pub async fn handle_radarr_webhook(data: &RadarrWebhook) -> Result<MessageData> {
+#[tracing::instrument(skip(data))]
+pub async fn handle_radarr_webhook(data: RadarrWebhook) -> Result<MessageData> {
     debug!("Processing Radarr webhook.");
     let message = match data {
         RadarrWebhook::Test {
@@ -45,7 +48,7 @@ pub async fn handle_radarr_webhook(data: &RadarrWebhook) -> Result<MessageData> 
             message,
             health_type,
             wiki_url,
-        } => on_health_check(&ArrType::Radarr, level, message, health_type, wiki_url),
+        } => on_health_check(RADARR_NAME, level, message, health_type, wiki_url),
     };
 
     Ok(message)
@@ -76,7 +79,7 @@ fn format_title_with_movie(movie: &RadarrMovie) -> String {
     result
 }
 
-fn add_release_date(builder: &mut MessageDataBuilder, movie: &RadarrMovie) {
+fn add_release_date(builder: &mut MessageDataBuilder, movie: RadarrMovie) {
     if movie.release_date.is_some() {
         let release = movie.release_date.unwrap();
         builder.add_key_value("Release Date", &release.format("%Y-%m-%d").to_string())
@@ -84,16 +87,16 @@ fn add_release_date(builder: &mut MessageDataBuilder, movie: &RadarrMovie) {
 }
 
 fn on_test(
-    movie: &RadarrMovie,
-    remote_movie: &RadarrRemoteMovie,
-    release: &RadarrRelease,
+    movie: RadarrMovie,
+    remote_movie: RadarrRemoteMovie,
+    release: RadarrRelease,
 ) -> MessageData {
     info!("Received Test webhook from Radarr.");
     let mut builder = MessageDataBuilder::new();
     add_heading(
         &mut builder,
         "Radarr Test",
-        &format_title_with_remote(remote_movie),
+        &format_title_with_remote(&remote_movie),
     );
     add_release_date(&mut builder, movie);
     add_quality(&mut builder, &release.quality);
@@ -102,16 +105,16 @@ fn on_test(
 }
 
 fn on_grab(
-    movie: &RadarrMovie,
-    remote_movie: &RadarrRemoteMovie,
-    release: &RadarrRelease,
+    movie: RadarrMovie,
+    remote_movie: RadarrRemoteMovie,
+    release: RadarrRelease,
 ) -> MessageData {
     info!("Received Grab webhook from Radarr.");
     let mut builder = MessageDataBuilder::new();
     add_heading(
         &mut builder,
         "Movie Grabbed",
-        &format_title_with_remote(remote_movie),
+        &format_title_with_remote(&remote_movie),
     );
     add_release_date(&mut builder, movie);
     add_quality(&mut builder, &release.quality);
@@ -120,71 +123,70 @@ fn on_grab(
 }
 
 fn on_download(
-    movie: &RadarrMovie,
-    remote_movie: &RadarrRemoteMovie,
-    movie_file: &RadarrMovieFile,
-    is_upgrade: &bool,
+    movie: RadarrMovie,
+    remote_movie: RadarrRemoteMovie,
+    movie_file: RadarrMovieFile,
+    is_upgrade: bool,
 ) -> MessageData {
     info!("Received Download webhook from Radarr.");
     let mut builder = MessageDataBuilder::new();
     add_heading(
         &mut builder,
         "Movie Downloaded",
-        &format_title_with_remote(remote_movie),
+        &format_title_with_remote(&remote_movie),
     );
     add_release_date(&mut builder, movie);
     add_quality(&mut builder, &movie_file.quality);
-    builder.add_key_value("Is Upgrade", if *is_upgrade { "Yes" } else { "No" });
+    builder.add_key_value("Is Upgrade", if is_upgrade { "Yes" } else { "No" });
 
     builder.to_message_data()
 }
 
-fn on_rename(movie: &RadarrMovie) -> MessageData {
+fn on_rename(movie: RadarrMovie) -> MessageData {
     info!("Received Rename webhook from Radarr.");
     let mut builder = MessageDataBuilder::new();
     add_heading(
         &mut builder,
         "Movie Renamed",
-        &format_title_with_movie(movie),
+        &format_title_with_movie(&movie),
     );
     if movie.file_path.is_some() {
-        let optional_path = movie.file_path.as_ref();
-        builder.add_key_value_with_code("Path", optional_path.unwrap());
+        let optional_path = movie.file_path;
+        builder.add_key_value_with_code("Path", &optional_path.unwrap());
     }
 
     builder.to_message_data()
 }
 
-fn on_movie_delete(movie: &RadarrMovie, deleted_files: &bool) -> MessageData {
+fn on_movie_delete(movie: RadarrMovie, deleted_files: bool) -> MessageData {
     info!("Received Movie Delete webhook from Radarr.");
     let mut builder = MessageDataBuilder::new();
     add_heading(
         &mut builder,
         "Movie Deleted",
-        &format_title_with_movie(movie),
+        &format_title_with_movie(&movie),
     );
-    builder.add_key_value("Files Deleted", if *deleted_files { "Yes" } else { "No" });
+    builder.add_key_value("Files Deleted", if deleted_files { "Yes" } else { "No" });
 
     builder.to_message_data()
 }
 
 fn on_movie_file_delete(
-    movie: &RadarrMovie,
-    movie_file: &RadarrMovieFile,
-    delete_reason: &Option<String>,
+    movie: RadarrMovie,
+    movie_file: RadarrMovieFile,
+    delete_reason: Option<String>,
 ) -> MessageData {
     info!("Received Movie File Delete webhook from Radarr.");
     let mut builder = MessageDataBuilder::new();
     add_heading(
         &mut builder,
         "Movie File Deleted",
-        &format_title_with_movie(movie),
+        &format_title_with_movie(&movie),
     );
     builder.add_key_value(
         "Reason",
         delete_reason
-            .as_ref()
-            .unwrap_or(&String::from("No Reason Given"))
+            .unwrap_or_else(|| String::from("No Reason Given"))
             .as_str(),
     );
     builder.add_key_value_with_code("Path", &movie_file.relative_path);

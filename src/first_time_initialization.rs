@@ -1,4 +1,5 @@
 use anyhow::{ensure, Context, Result};
+use tracing::{debug, info};
 use yarrbot_common::environment::{get_env_var, variables::FIRST_MATRIX_USER};
 use yarrbot_db::actions::user_actions::UserActions;
 use yarrbot_db::enums::UserRole;
@@ -34,6 +35,6 @@ fn initialize_first_user(conn: &DbPoolConnection) -> Result<()> {
     User::create_user(conn, new_user)
         .with_context(|| format!("Failed to create the User record for {}.", user_id_raw))?;
 
-    info!("{} may now interact with Yarrbot.", user_id_raw);
+    info!(user = %user_id_raw, "First run user has been set up to interact with Yarrbot.");
     Ok(())
 }

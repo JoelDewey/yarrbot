@@ -1,15 +1,7 @@
 # Yarrbot
 
 A simple Matrix bot that listens for webhook notifications from [Sonarr](https://github.com/Sonarr/Sonarr) or [Radarr](https://github.com/Radarr/Radarr) 
-and relays those notifications to one or more Matrix rooms. Sonarr and Radarr webhooks can be used in conjunction with 
-this Matrix bot to send notifications when Sonarr or Radarr:
-
-* Sees that a show/movie is available for download;
-* Has downloaded and imported some show/movie;
-* Has upgraded an existing show/movie to a better quality;
-* Has renamed a show/movie;
-* When a series, movie, or episode file has been deleted;
-* When a health check has failed.
+and relays those notifications to one or more Matrix rooms.
 
 This is a simple project being used by the author to start learning the Rust programming language. Yarrbot is beta 
 software and comes with all of the risks associated with using beta software. Please read through the [LICENSE.txt](LICENSE.txt) 
@@ -21,19 +13,22 @@ then for the most part simply substituting `podman` for `docker` in the command 
 ## Features
 
 * Web API endpoint compatible with Sonarr/Radarr webhook requests; supports either `POST` or `PUT` requests.
-* Configurable through directly chatting with the bot in a private Matrix room.
+* Configurable through a direct chat with the bot.
 * Notifications arrive in both rich text (HTML) and plain text (formatted in Markdown).
+* Designed to support the webhook notifications sent when Sonarr/Radarr:
+  * Sees that a show/movie is available for download;
+  * Has downloaded and imported some show/movie;
+  * Has upgraded an existing show/movie to a better quality;
+  * Has renamed a show/movie;
+  * Deletes a series, movie, or episode file;
+  * Detects when a health check has failed.
 
-### Future Features
+### Example Webhook Notification
 
-* Decoupling of webhook and Matrix message flows; in other words, don't make Sonarr/Radarr wait for the bot to finish
-  posting the Matrix messages.
-* Customization of the messages posted by the bot via an external configuration file.
-* Retrieval of extra metadata (e.g. synopsis information) from Sonarr/Radarr/some external source.
-* Configuration option to reject non-HTTPS requests.
-* Allow for one webhook to result in notifications sent to multiple Matrix rooms.
-* More tests!
-* Maybe Lidarr support?
+![Example of a Notification from Yarrbot](docs/images/example_notification.png)
+
+The above image is taken from the [Element desktop application](https://element.io/get-started). The information shown 
+in the notification is designed with parity to the built-in Sonarr/Radarr email notifications.
 
 ## Setup
 
@@ -114,8 +109,11 @@ the file system located at the path defined by the environment variable. See the
    native mounting functionality.
 * `YARRBOT_WEB_PORT`: Some port for Yarrbot to bind the web API to when starting up. This defaults to `8080` if not set;
    if using the container image, this port is exposed and should be configured via your container runtime.
-* `YARRBOT_LOG_FILTER`: Adjust the logging level of Yarrbot; defaults to `warn`, but if one would like to see a little 
-   more logging information, set this to `info`.
+* `YARRBOT_LOG_FILTER`: Adjust the logging level of Yarrbot and its inner dependencies (crates); defaults to 
+  `warn,yarrbot=info` which results in all messages from Yarrbot itself with an "informational" level or higher being 
+  logged, but only "warning" or higher messages from Yarrbot's dependencies being logged. The default is recommended for
+  most users. While Yarrbot uses the [`tracing` crate](https://tracing-rs.netlify.app/tracing/) for log functionality,
+  the `tracing` crate uses the [`env_logger` crate's log level controls](https://docs.rs/env_logger/0.9.0/env_logger/#enabling-logging).
 
 ### Use
 
@@ -123,9 +121,11 @@ After Yarrbot starts up successfully for the first time, it will be configured t
 user specified in the `YARRBOT_INITIALIZATION_USER` environment variable. Yarrbot responds to the following commands:
 
 * `!yarrbot ping`: Testing command to which Yarrbot will reply with `pong`.
-* `!yarrbot webhook add sonarr roomOrAliasId username [password]`: Add a new webhook for either Sonarr or Radarr 
-  (replacing `sonarr` with `radarr`) for the given Room ID or Room Alias ID with a username. Optionally supports  
-  providing a password; if the password isn't provided, then Yarrbot will generate one. 
+* `!yarrbot help`: Prints help information on the commands that Yarrbot supports, similar to this list.
+* `!yarrbot sourcecode`: Get a link to the source code of Yarrbot.
+* `!yarrbot webhook add roomOrAliasId username [password]`: Configures the bot to listen for webhook notifications to 
+  relay to the given room. Requires that one specifies a username; a password may be supplied, otherwise Yarrbot will 
+  generate one. This command will return an ID to use in the path to the webhook API supplied by the bot (e.g. `/api/v1/webhook/abcd1234`).
 * `!yarrbot webhook list`: List the webhooks in the system.
 * `!yarrbot webhook remove webhookId`: Removes a webhook by its ID, provided by the `webhook list` or `webhook add` 
   commands.
@@ -137,8 +137,7 @@ To set up either Sonarr or Radarr with Yarrbot:
 2. Retrieve the Room ID or a Room Alias that Yarrbot's homeserver can resolve for the room. To get the Room ID via 
    Element, go to the room's "Room Settings" page, then in the "Advanced" page there will be an "Internal Room ID". 
    Copy the value starting with the exclamation point (`!`).
-3. In a separate direct chat with Yarrbot, send it the following message, replacing `sonarr` with `radarr` as appropriate: 
-   `!yarrbot webhook add sonarr !roomId:example.org sonarr_user_1`
+3. In a separate direct chat with Yarrbot, send it the following message: `!yarrbot webhook add !roomId:example.org webhook_user_1`
 4. Yarrbot will reply with a confirmation and an ID, Username, and Password. Store these values in a secure location.
 5. In Sonarr (or Radarr), go to "Settings" and then "Connect". Add a new "Webhook" connection.
 6. Fill out the "Name", "Triggers", and "Tags" sections as appropriate. See [Sonarr's documentation](https://wiki.servarr.com/sonarr/settings#connection-triggers) for more details.
@@ -161,17 +160,22 @@ on bare metal.
 A Dockerfile is provided to build a release version of Yarrbot as a container image:
 
 ```
-podman build -t=yarrbot:0.1.0 .
+podman build -t=yarrbot .
 ```
 
 If one would rather build Yarrbot on bare metal, please make sure that your build machine has the following:
 
-* Rust 1.53 or newer (older versions of Rust would probably work, but aren't tested)
-* `cmake`
+* The latest version of the Rust (older versions of Rust would probably work, but aren't tested)
 * Postgresql development library (`libpq-dev`)
+* OpenSSL
+* `cmake`
+* `make`
+* `libstdc++`
 
 It can then be built with the following command:
 
 ```
 cargo build --release
 ```
+
+There is no musl support currently.

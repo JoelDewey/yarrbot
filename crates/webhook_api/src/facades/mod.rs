@@ -1,47 +1,76 @@
 //! Services for reading webhook data from Sonarr/Radarr and sending it out
 //! via Matrix.
 
-use actix_web::web::block;
-use anyhow::Result;
-
 mod radarr_facade;
 mod sonarr_facade;
 
 use crate::models::common::ArrHealthCheckResult;
+use actix_web::web::block;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 pub use radarr_facade::handle_radarr_webhook;
 pub use sonarr_facade::handle_sonarr_webhook;
 use std::option::Option::Some;
+use tracing::{error, info, info_span, warn};
 use uuid::Uuid;
 use yarrbot_db::actions::matrix_room_actions::MatrixRoomActions;
-use yarrbot_db::enums::ArrType;
 use yarrbot_db::models::MatrixRoom;
 use yarrbot_db::DbPool;
 use yarrbot_matrix_client::message::{MessageData, MessageDataBuilder, SectionHeadingLevel};
 use yarrbot_matrix_client::MatrixClient;
+
+pub use radarr_facade::RADARR_NAME;
+pub use sonarr_facade::SONARR_NAME;
+use tracing_futures::Instrument;
 
 pub async fn send_matrix_messages<T: MatrixClient>(
     pool: &DbPool,
     webhook_id: &Uuid,
     client: &T,
     message: MessageData,
-) -> Result<()> {
-    let conn = pool.get()?;
+) {
+    let conn = match pool.get() {
+        Ok(c) => c,
+        Err(e) => {
+            error!(error = ?e, "Failed to retrieve database connection from the pool.");
+            return;
+        }
+    };
     let id = *webhook_id;
-    let rooms = block(move || MatrixRoom::get_by_webhook_id(&conn, &id)).await??;
+    let rooms = match block(move || MatrixRoom::get_by_webhook_id(&conn, &id)).await {
+        Ok(Ok(r)) => r,
+        Err(e) => {
+            error!(
+                error = ?e,
+                "Failed to retrieve rooms due to a blocking error."
+            );
+            Vec::new()
+        }
+        Ok(Err(e)) => {
+            error!(
+                error = ?e,
+                "Failed to retrieve rooms due to a database error."
+            );
+            Vec::new()
+        }
+    };
+    info!("Sending a webhook message to {} room(s).", rooms.len());
     let tasks = rooms.iter().map(|r| client.send_message(&message, r));
     let mut stream = tasks.collect::<FuturesUnordered<_>>();
-    while let Some(item) = stream.next().await {
+    while let Some(item) = stream
+        .next()
+        .instrument(info_span!("Sending Matrix Message"))
+        .await
+    {
         if item.is_err() {
             error!(
-                "Encountered error while posting to matrix room: {:?}",
-                item.unwrap_err()
+                error = ?item.unwrap_err(),
+                "Encountered error while posting to matrix room."
             );
         }
     }
 
-    Ok(())
+    info!("Finished sending webhook messages.");
 }
 
 fn add_heading(builder: &mut MessageDataBuilder, key: &str, value: &str) {
@@ -60,20 +89,19 @@ fn add_quality(builder: &mut MessageDataBuilder, quality: &Option<String>) {
 
 /// Respond to health checks from Sonarr/Radarr.
 fn on_health_check(
-    arr_type: &ArrType,
-    level: &Option<ArrHealthCheckResult>,
-    message: &Option<String>,
-    health_type: &Option<String>,
-    wiki_url: &Option<String>,
+    arr_type: &str,
+    level: Option<ArrHealthCheckResult>,
+    message: Option<String>,
+    health_type: Option<String>,
+    wiki_url: Option<String>,
 ) -> MessageData {
-    let arr = match arr_type {
-        ArrType::Sonarr => "Sonarr",
-        ArrType::Radarr => "Radarr",
-    };
-    info!("Received Health Check webhook from {}.", arr);
+    info!("Received Health Check webhook from {}.", arr_type);
 
     let mut builder = MessageDataBuilder::new();
-    builder.add_heading(&SectionHeadingLevel::One, &format!("{} Health Check", arr));
+    builder.add_heading(
+        &SectionHeadingLevel::One,
+        &format!("{} Health Check", arr_type),
+    );
     if level.is_some() {
         let l = match level.as_ref().unwrap() {
             ArrHealthCheckResult::Ok => "Ok",

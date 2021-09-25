@@ -1,11 +1,12 @@
 //! Supporting functions for listing all webhooks.
 
 use super::get_user;
-use crate::command_parser::CommandMetadata;
+use crate::commands::CommandMetadata;
 use crate::message::{MatrixMessageDataPart, MessageData, MessageDataBuilder};
 use anyhow::Result;
 use std::collections::VecDeque;
 use tokio::task::spawn_blocking;
+use tracing::{error, info, warn};
 use yarrbot_common::short_id::ShortId;
 use yarrbot_db::actions::webhook_actions::WebhookActions;
 use yarrbot_db::enums::UserRole;
@@ -14,25 +15,23 @@ use yarrbot_db::DbPool;
 
 /// Handle the list command. Specifying `!yarrbot webhook list all` will list all users
 /// webhooks if the requesting user is a System Administrator.
+#[tracing::instrument(skip(pool))]
 pub async fn handle_list(
     metadata: CommandMetadata,
     pool: &DbPool,
     mut data: VecDeque<&str>,
 ) -> MessageData {
-    debug!("Listing webhooks.");
+    info!("Received webhook list command.");
     let user = match get_user(pool, &metadata.user).await {
         Ok(Some(u)) => u,
         Ok(None) => {
-            warn!(
-                "{} attempted to list webhooks but is not authorized to do so.",
-                &metadata.user
-            );
+            warn!("User attempted to list webhooks but is not authorized to do so.");
             return MessageData::from("You are not allowed to modify webhooks.");
         }
         Err(e) => {
             error!(
-                "Encountered error while retrieving user from the database: {:?}",
-                e
+                error = ?e,
+                "Encountered error while retrieving user from the database."
             );
             return MessageData::from(
                 "Yarrbot encountered an error communicating with the database.",
@@ -43,14 +42,17 @@ pub async fn handle_list(
     let webhooks = match get_webhooks(pool, &user, specifier).await {
         Ok(v) => v,
         Err(e) => {
-            error!("Encountered an error while retrieving webhooks: {:?}", e);
+            error!(
+                error = ?e,
+                "Encountered an error while retrieving webhooks."
+            );
             return MessageData::from(
                 "Couldn't retrieve the list of webhooks, please try again later.",
             );
         }
     };
 
-    debug!("Listing webhooks.");
+    info!("Listing webhooks.");
     let items: Vec<String> = webhooks.iter().map(|w| w.id.to_short_id()).collect();
     let mut builder = MessageDataBuilder::new();
     if items.is_empty() {

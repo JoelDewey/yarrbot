@@ -1,4 +1,6 @@
-use crate::command_parser;
+mod on_room_message;
+mod on_stripped_state_member;
+
 use crate::message::MessageData;
 use crate::MatrixClient;
 use anyhow::{Context, Result};
@@ -14,9 +16,13 @@ use matrix_sdk::{
     ruma::events::AnyMessageEventContent, ruma::identifiers::RoomId, Client, ClientConfig,
     SyncSettings,
 };
+use on_room_message::on_room_message;
+use on_stripped_state_member::on_stripped_state_member;
 use std::convert::TryFrom;
 use std::path::PathBuf;
 use tokio::task::spawn_blocking;
+use tracing::{debug, error, error_span, info};
+use tracing_futures::Instrument;
 use url::Url;
 use yarrbot_db::actions::matrix_room_actions::MatrixRoomActions;
 use yarrbot_db::models::MatrixRoom;
@@ -44,13 +50,18 @@ impl YarrbotMatrixClient {
         let matrix_rooms = spawn_blocking(move || MatrixRoom::get_many(&conn, None)).await??;
         let join_room_tasks = matrix_rooms
             .iter()
-            .map(|r| &r.room_id[..])
+            .map(|r| r.room_id.as_str())
             .unique()
             .map(|room_id| join_room(client, room_id));
         let mut stream = join_room_tasks.collect::<FuturesUnordered<_>>();
-        while let Some(item) = stream.next().await {
+        while let Some(item) = stream
+            .next()
+            .instrument(error_span!("Joining Saved Matrix Rooms"))
+            .await
+        {
             if item.is_err() {
-                error!("Unable to join room: {:?}", item.unwrap_err());
+                let err = item.unwrap_err();
+                error!(error = ?err, "Unable to join room.");
             }
         }
 
@@ -82,26 +93,23 @@ impl YarrbotMatrixClient {
         client.sync_once(SyncSettings::default()).await?;
         YarrbotMatrixClient::init(&client, &pool).await?;
         debug!("Setting CommandParser event handler.");
-        // The registration of the event handlers and all of the cloning is based on the Matrix SDK's docs for
-        // version 0.4.0. Maybe revisit this later and see if there's a cleaner way to do this?
         client
             .register_event_handler({
-                let pool2 = pool.clone();
+                let pool = pool.clone();
                 move |ev: SyncMessageEvent<MessageEventContent>, room: Room, client: Client| {
-                    let parser = command_parser::CommandParser::new(client, pool2.clone());
+                    let pool = pool.clone();
                     async move {
-                        parser.on_room_message(room, &ev).await;
+                        on_room_message(&client, &pool, &room, &ev).await;
                     }
                 }
             })
-            .await;
-        client
+            .await
             .register_event_handler({
-                let pool2 = pool.clone();
+                let pool = pool.clone();
                 move |ev: StrippedStateEvent<MemberEventContent>, room: Room, client: Client| {
-                    let parser = command_parser::CommandParser::new(client, pool2.clone());
+                    let pool = pool.clone();
                     async move {
-                        parser.on_stripped_state_member(room, &ev).await;
+                        on_stripped_state_member(&client, &pool, room, &ev).await;
                     }
                 }
             })
@@ -136,6 +144,8 @@ impl YarrbotMatrixClient {
 #[async_trait]
 impl MatrixClient for YarrbotMatrixClient {
     async fn send_message(&self, message: &MessageData, room: &MatrixRoom) -> Result<()> {
+        info!(room.matrix_id = %room.room_id, "Sending Matrix message to room.");
+        debug!(message = ?message, "Sending Matrix message with the given contents.");
         let room_id = RoomId::try_from(&room.room_id[..])?;
         let content = AnyMessageEventContent::RoomMessage(message.into());
 

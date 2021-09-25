@@ -1,0 +1,3 @@
+ALTER TABLE IF EXISTS webhooks DROP COLUMN IF EXISTS arr_type;
+
+DROP TYPE IF EXISTS arr_type;

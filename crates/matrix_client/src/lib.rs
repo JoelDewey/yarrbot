@@ -1,10 +1,6 @@
 mod client;
-mod command_parser;
 mod commands;
 pub mod message;
-
-#[macro_use]
-extern crate log;
 
 use crate::message::MessageData;
 use anyhow::Result;

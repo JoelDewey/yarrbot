@@ -1,19 +1,26 @@
-FROM rust:1.55.0 as builder
+FROM rust:1.55 as builder
 
 WORKDIR /usr/src/myapp
 
 COPY ./ ./
 
-RUN apt-get update && apt-get install -y cmake libpq-dev
+# libstdc++ is already installed in the base image.
+RUN apt-get update && apt-get install -y cmake make libpq-dev
 RUN cargo build --release
 RUN strip ./target/release/yarrbot
 
 FROM ubuntu:latest
 
-RUN apt-get update && apt-get install -y libpq5 openssl ca-certificates && rm -rf /var/lib/apt/lists/*
-RUN addgroup --system --gid 1000 yarrbot && adduser --system --no-create-home --shell /bin/false --uid 1000 --gid 1000 yarrbot
+RUN addgroup --system --gid 1000 yarrbot && \
+    adduser --system --no-create-home --shell /bin/false --uid 1000 --gid 1000 yarrbot && \
+    apt-get update && \
+    apt-get install -y ca-certificates libpq5 && \
+    mkdir /app /data && \
+    chown -R yarrbot:yarrbot /app && \
+    chown yarrbot:yarrbot /data && \
+    rm -rf /var/lib/apt/lists/* && \
+    update-ca-certificates
 COPY --chown=yarrbot:yarrbot --from=builder /usr/src/myapp/target/release/yarrbot /app/yarrbot
-RUN chown -R yarrbot:yarrbot /app/yarrbot && mkdir /data && chown yarrbot:yarrbot /data
 
 VOLUME ["/data"]
 

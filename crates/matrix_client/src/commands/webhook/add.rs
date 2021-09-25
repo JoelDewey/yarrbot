@@ -46,7 +46,7 @@ pub async fn handle_add(
             );
         }
     };
-    if data.len() < 3 {
+    if data.len() < 2 {
         warn!("Not enough parameters provided to add command.");
         return MessageData::from(
             "Adding a new webhook requires a room alias/ID, a username, and optionally a password.",

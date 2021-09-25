@@ -103,6 +103,7 @@ async fn execute_command(
         "ping" => ping_command::get_message(),
         "webhook" => webhook_command::handle_webhook_command(metadata, client, pool, data).await?,
         "sourcecode" => sourcecode_command::get_message(),
+        "help" => help_command::get_message(),
         _ => {
             info!("Received unrecognized command.");
             MessageData::from("Unrecognized command.")

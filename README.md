@@ -1,3 +1,4 @@
+
 # Yarrbot
 
 A simple Matrix bot that listens for webhook notifications from [Sonarr](https://github.com/Sonarr/Sonarr) or [Radarr](https://github.com/Radarr/Radarr) 
@@ -28,7 +29,7 @@ then for the most part simply substituting `podman` for `docker` in the command 
 ![Example of a Notification from Yarrbot](docs/images/example_notification.png)
 
 The above image is taken from the [Element desktop application](https://element.io/get-started). The information shown 
-in the notification is designed with parity to the built-in Sonarr/Radarr email notifications.
+in the notification is designed with close parity to the built-in Sonarr/Radarr email notifications.
 
 ## Setup
 
@@ -58,7 +59,6 @@ podman run -d \
     -p 8081:8080 \
     -v yarrbot-storage:/data \
     -e YARRBOT_DATABASE_URL_FILE=/run/secrets/yarrbot-db-url \
-    -e YARRBOT_LOG_FILTER=info \
     -e YARRBOT_MATRIX_USERNAME=yarrbot \
     -e YARRBOT_MATRIX_PASSWORD_FILE=/run/secrets/yarrbot-matrix-pass \
     -e YARRBOT_MATRIX_HOMESERVER_URL=https://matrix.example.org \

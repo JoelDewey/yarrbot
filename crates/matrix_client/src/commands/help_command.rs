@@ -11,7 +11,7 @@ pub fn get_message() -> MessageData {
     builder.add_key_value_with_code("Get the sourcecode for Yarrbot", "!yarrbot sourcecode");
     builder.add_key_value_with_code(
         "Add a new webhook",
-        "!yarrbot webhook add roomOrAliasId username [password]",
+        "!yarrbot webhook add roomOrAliasId username [password] [serverName]",
     );
     builder.add_key_value_with_code("List configured webhooks", "!yarrbot webhook list");
     builder.add_key_value_with_code("Remove a webhook", "!yarrbot webhook remove webhookId");

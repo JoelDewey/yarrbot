@@ -13,43 +13,53 @@ pub const SONARR_NAME: &str = "Sonarr";
 
 /// Process webhook data pushed from Sonarr. The interaction differs based on the type of [SonarrWebhook] provided.
 #[tracing::instrument(skip(data))]
-pub async fn handle_sonarr_webhook(data: SonarrWebhook) -> Result<MessageData> {
+pub async fn handle_sonarr_webhook(
+    data: SonarrWebhook,
+    server_name: &Option<String>,
+) -> Result<MessageData> {
     debug!("Processing Sonarr webhook.");
     let message = match data {
-        SonarrWebhook::Test { series, episodes } => on_test(series, &episodes),
+        SonarrWebhook::Test { series, episodes } => on_test(series, &episodes, server_name),
         SonarrWebhook::Grab {
             series,
             episodes,
             release,
             ..
-        } => on_grab(series, &episodes, release),
+        } => on_grab(series, &episodes, release, server_name),
         SonarrWebhook::Download {
             series,
             episodes,
             episode_file,
             is_upgrade,
             ..
-        } => on_download(series, &episodes, episode_file, is_upgrade),
+        } => on_download(series, &episodes, episode_file, is_upgrade, server_name),
         SonarrWebhook::Rename {
             series,
             renamed_episode_files,
-        } => on_rename(series, &renamed_episode_files),
+        } => on_rename(series, &renamed_episode_files, server_name),
         SonarrWebhook::SeriesDelete {
             series,
             deleted_files,
-        } => on_series_delete(series, deleted_files),
+        } => on_series_delete(series, deleted_files, server_name),
         SonarrWebhook::EpisodeFileDelete {
             series,
             episodes,
             episode_file,
             delete_reason,
-        } => on_episode_file_delete(series, &episodes, episode_file, delete_reason),
+        } => on_episode_file_delete(series, &episodes, episode_file, delete_reason, server_name),
         SonarrWebhook::Health {
             level,
             message,
             health_type,
             wiki_url,
-        } => on_health_check(SONARR_NAME, level, message, health_type, wiki_url),
+        } => on_health_check(
+            SONARR_NAME,
+            level,
+            message,
+            health_type,
+            wiki_url,
+            server_name,
+        ),
     };
 
     Ok(message)
@@ -78,10 +88,11 @@ fn on_grab(
     series: SonarrSeries,
     episodes: &[SonarrEpisode],
     release: SonarrRelease,
+    server_name: &Option<String>,
 ) -> MessageData {
     info!("Received Grab webhook from Sonarr.");
     let mut builder = MessageDataBuilder::new();
-    add_heading(&mut builder, "Series Grabbed", &series.title);
+    add_heading(&mut builder, "Series Grabbed", &series.title, server_name);
     add_quality(&mut builder, &release.quality);
     builder.break_character();
     add_episodes(&mut builder, episodes);
@@ -94,10 +105,16 @@ fn on_download(
     episodes: &[SonarrEpisode],
     episode_file: SonarrEpisodeFile,
     is_upgrade: bool,
+    server_name: &Option<String>,
 ) -> MessageData {
     info!("Received Download webhook from Sonarr.");
     let mut builder = MessageDataBuilder::new();
-    add_heading(&mut builder, "Series Downloaded", &series.title);
+    add_heading(
+        &mut builder,
+        "Series Downloaded",
+        &series.title,
+        server_name,
+    );
     add_quality(&mut builder, &episode_file.quality);
     builder.add_key_value("Is Upgrade", if is_upgrade { "Yes" } else { "No" });
     builder.break_character();
@@ -161,19 +178,24 @@ impl MatrixMessageDataPart for RenamedFiles {
 fn on_rename(
     series: SonarrSeries,
     renamed_episode_files: &[SonarrRenamedEpisodeFile],
+    server_name: &Option<String>,
 ) -> MessageData {
     info!("Received Rename webhook from Sonarr.");
     let mut builder = MessageDataBuilder::new();
-    add_heading(&mut builder, "Series Renamed", &series.title);
+    add_heading(&mut builder, "Series Renamed", &series.title, server_name);
     builder.add_matrix_message_part(RenamedFiles::new(renamed_episode_files));
 
     builder.to_message_data()
 }
 
-fn on_series_delete(series: SonarrSeries, deleted_files: bool) -> MessageData {
+fn on_series_delete(
+    series: SonarrSeries,
+    deleted_files: bool,
+    server_name: &Option<String>,
+) -> MessageData {
     info!("Received Series Delete webhook from Sonarr.");
     let mut builder = MessageDataBuilder::new();
-    add_heading(&mut builder, "Series Deleted", &series.title);
+    add_heading(&mut builder, "Series Deleted", &series.title, server_name);
     builder.add_key_value("Files Deleted", if deleted_files { "Yes" } else { "No" });
 
     builder.to_message_data()
@@ -184,10 +206,16 @@ fn on_episode_file_delete(
     episodes: &[SonarrEpisode],
     episode_file: SonarrEpisodeDeletedFile,
     reason: Option<String>,
+    server_name: &Option<String>,
 ) -> MessageData {
     info!("Received Episode File Delete webhook from Sonarr.");
     let mut builder = MessageDataBuilder::new();
-    add_heading(&mut builder, "Series Episode Files Deleted", &series.title);
+    add_heading(
+        &mut builder,
+        "Series Episode Files Deleted",
+        &series.title,
+        server_name,
+    );
     builder.add_key_value(
         "Reason",
         reason
@@ -206,10 +234,14 @@ fn on_episode_file_delete(
     builder.to_message_data()
 }
 
-fn on_test(series: SonarrSeries, episodes: &[SonarrEpisode]) -> MessageData {
+fn on_test(
+    series: SonarrSeries,
+    episodes: &[SonarrEpisode],
+    server_name: &Option<String>,
+) -> MessageData {
     info!("Received Test webhook from Sonarr.");
     let mut builder = MessageDataBuilder::new();
-    add_heading(&mut builder, "Sonarr Test", &series.title);
+    add_heading(&mut builder, "Sonarr Test", &series.title, server_name);
     add_episodes(&mut builder, episodes);
 
     builder.to_message_data()

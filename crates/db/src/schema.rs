@@ -26,6 +26,7 @@ table! {
         username -> Text,
         password -> Bytea,
         user_id -> Uuid,
+        server_name -> Nullable<Text>,
     }
 }
 

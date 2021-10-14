@@ -89,7 +89,8 @@ pub async fn handle_add(
             generate_password(None).unwrap()
         }
     };
-    let webhook = match create_webhook(pool, username, &password, &user).await {
+    let server_name = data.pop_front();
+    let webhook = match create_webhook(pool, username, &password, &user, server_name).await {
         Ok(w) => w,
         Err(e) => {
             error!(error = ?e, "Failed to create webhook in the database.");
@@ -138,9 +139,11 @@ async fn create_webhook(
     username: &str,
     password: &str,
     user: &User,
+    server_name: Option<&str>,
 ) -> Result<Webhook> {
     let hashed = hash(String::from(password)).await?;
-    let new_webhook = NewWebhook::new(username, hashed.to_vec(), user);
+    let name: Option<String> = server_name.map(String::from).or(None);
+    let new_webhook = NewWebhook::new(username, hashed.to_vec(), user, name);
     let conn = pool.get()?;
     Ok(spawn_blocking(move || Webhook::create_webhook(&conn, new_webhook)).await??)
 }

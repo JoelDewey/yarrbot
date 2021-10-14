@@ -67,6 +67,9 @@ pub struct Webhook {
 
     /// The [User] that owns this [Webhook].
     pub user_id: Uuid,
+
+    /// A user-friendly name for the server invoking the webhook to be displayed in notifications.
+    pub server_name: Option<String>,
 }
 
 #[derive(Insertable, Associations)]
@@ -83,15 +86,24 @@ pub struct NewWebhook {
 
     /// The [User] that owns this [Webhook].
     user_id: Uuid,
+
+    /// A user-friendly name for the server invoking the webhook to be displayed in notifications.
+    pub server_name: Option<String>,
 }
 
 impl NewWebhook {
-    pub fn new(username: &str, password: Vec<u8>, user: &User) -> NewWebhook {
+    pub fn new(
+        username: &str,
+        password: Vec<u8>,
+        user: &User,
+        server_name: Option<String>,
+    ) -> NewWebhook {
         NewWebhook {
             id: Uuid::new_v4(),
             username: String::from(username),
             password,
             user_id: user.id,
+            server_name,
         }
     }
 }
@@ -103,6 +115,7 @@ impl From<NewWebhook> for Webhook {
             username: webhook.username,
             password: webhook.password,
             user_id: webhook.user_id,
+            server_name: webhook.server_name,
         }
     }
 }

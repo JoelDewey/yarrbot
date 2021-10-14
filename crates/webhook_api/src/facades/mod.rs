@@ -73,8 +73,20 @@ pub async fn send_matrix_messages<T: MatrixClient>(
     info!("Finished sending webhook messages.");
 }
 
-fn add_heading(builder: &mut MessageDataBuilder, key: &str, value: &str) {
-    builder.add_heading(&SectionHeadingLevel::One, &format!("{}: {}", key, value));
+fn add_heading(
+    builder: &mut MessageDataBuilder,
+    key: &str,
+    value: &str,
+    server_name: &Option<String>,
+) {
+    if let Some(sn) = server_name {
+        builder.add_heading(
+            &SectionHeadingLevel::One,
+            &format!("{} - {}: {}", sn, key, value),
+        );
+    } else {
+        builder.add_heading(&SectionHeadingLevel::One, &format!("{}: {}", key, value));
+    }
 }
 
 fn add_quality(builder: &mut MessageDataBuilder, quality: &Option<String>) {
@@ -94,14 +106,12 @@ fn on_health_check(
     message: Option<String>,
     health_type: Option<String>,
     wiki_url: Option<String>,
+    server_name: &Option<String>,
 ) -> MessageData {
     info!("Received Health Check webhook from {}.", arr_type);
 
     let mut builder = MessageDataBuilder::new();
-    builder.add_heading(
-        &SectionHeadingLevel::One,
-        &format!("{} Health Check", arr_type),
-    );
+    add_heading(&mut builder, arr_type, "Health Check", server_name);
     if level.is_some() {
         let l = match level.as_ref().unwrap() {
             ArrHealthCheckResult::Ok => "Ok",

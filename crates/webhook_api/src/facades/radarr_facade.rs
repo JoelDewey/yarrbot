@@ -12,43 +12,53 @@ pub const RADARR_NAME: &str = "Radarr";
 
 /// Process webhook data pushed from Radarr. The interaction differs based on the type of [RadarrWebhook] provided.
 #[tracing::instrument(skip(data))]
-pub async fn handle_radarr_webhook(data: RadarrWebhook) -> Result<MessageData> {
+pub async fn handle_radarr_webhook(
+    data: RadarrWebhook,
+    server_name: &Option<String>,
+) -> Result<MessageData> {
     debug!("Processing Radarr webhook.");
     let message = match data {
         RadarrWebhook::Test {
             movie,
             remote_movie,
             release,
-        } => on_test(movie, remote_movie, release),
+        } => on_test(movie, remote_movie, release, server_name),
         RadarrWebhook::Grab {
             movie,
             remote_movie,
             release,
             ..
-        } => on_grab(movie, remote_movie, release),
+        } => on_grab(movie, remote_movie, release, server_name),
         RadarrWebhook::Download {
             movie,
             remote_movie,
             movie_file,
             is_upgrade,
             ..
-        } => on_download(movie, remote_movie, movie_file, is_upgrade),
-        RadarrWebhook::Rename { movie } => on_rename(movie),
+        } => on_download(movie, remote_movie, movie_file, is_upgrade, server_name),
+        RadarrWebhook::Rename { movie } => on_rename(movie, server_name),
         RadarrWebhook::MovieDelete {
             movie,
             deleted_files,
-        } => on_movie_delete(movie, deleted_files),
+        } => on_movie_delete(movie, deleted_files, server_name),
         RadarrWebhook::MovieFileDelete {
             movie,
             movie_file,
             delete_reason,
-        } => on_movie_file_delete(movie, movie_file, delete_reason),
+        } => on_movie_file_delete(movie, movie_file, delete_reason, server_name),
         RadarrWebhook::Health {
             level,
             message,
             health_type,
             wiki_url,
-        } => on_health_check(RADARR_NAME, level, message, health_type, wiki_url),
+        } => on_health_check(
+            RADARR_NAME,
+            level,
+            message,
+            health_type,
+            wiki_url,
+            server_name,
+        ),
     };
 
     Ok(message)
@@ -90,6 +100,7 @@ fn on_test(
     movie: RadarrMovie,
     remote_movie: RadarrRemoteMovie,
     release: RadarrRelease,
+    server_name: &Option<String>,
 ) -> MessageData {
     info!("Received Test webhook from Radarr.");
     let mut builder = MessageDataBuilder::new();
@@ -97,6 +108,7 @@ fn on_test(
         &mut builder,
         "Radarr Test",
         &format_title_with_remote(&remote_movie),
+        server_name,
     );
     add_release_date(&mut builder, movie);
     add_quality(&mut builder, &release.quality);
@@ -108,6 +120,7 @@ fn on_grab(
     movie: RadarrMovie,
     remote_movie: RadarrRemoteMovie,
     release: RadarrRelease,
+    server_name: &Option<String>,
 ) -> MessageData {
     info!("Received Grab webhook from Radarr.");
     let mut builder = MessageDataBuilder::new();
@@ -115,6 +128,7 @@ fn on_grab(
         &mut builder,
         "Movie Grabbed",
         &format_title_with_remote(&remote_movie),
+        server_name,
     );
     add_release_date(&mut builder, movie);
     add_quality(&mut builder, &release.quality);
@@ -127,6 +141,7 @@ fn on_download(
     remote_movie: RadarrRemoteMovie,
     movie_file: RadarrMovieFile,
     is_upgrade: bool,
+    server_name: &Option<String>,
 ) -> MessageData {
     info!("Received Download webhook from Radarr.");
     let mut builder = MessageDataBuilder::new();
@@ -134,6 +149,7 @@ fn on_download(
         &mut builder,
         "Movie Downloaded",
         &format_title_with_remote(&remote_movie),
+        server_name,
     );
     add_release_date(&mut builder, movie);
     add_quality(&mut builder, &movie_file.quality);
@@ -142,13 +158,14 @@ fn on_download(
     builder.to_message_data()
 }
 
-fn on_rename(movie: RadarrMovie) -> MessageData {
+fn on_rename(movie: RadarrMovie, server_name: &Option<String>) -> MessageData {
     info!("Received Rename webhook from Radarr.");
     let mut builder = MessageDataBuilder::new();
     add_heading(
         &mut builder,
         "Movie Renamed",
         &format_title_with_movie(&movie),
+        server_name,
     );
     if movie.file_path.is_some() {
         let optional_path = movie.file_path;
@@ -158,13 +175,18 @@ fn on_rename(movie: RadarrMovie) -> MessageData {
     builder.to_message_data()
 }
 
-fn on_movie_delete(movie: RadarrMovie, deleted_files: bool) -> MessageData {
+fn on_movie_delete(
+    movie: RadarrMovie,
+    deleted_files: bool,
+    server_name: &Option<String>,
+) -> MessageData {
     info!("Received Movie Delete webhook from Radarr.");
     let mut builder = MessageDataBuilder::new();
     add_heading(
         &mut builder,
         "Movie Deleted",
         &format_title_with_movie(&movie),
+        server_name,
     );
     builder.add_key_value("Files Deleted", if deleted_files { "Yes" } else { "No" });
 
@@ -175,6 +197,7 @@ fn on_movie_file_delete(
     movie: RadarrMovie,
     movie_file: RadarrMovieFile,
     delete_reason: Option<String>,
+    server_name: &Option<String>,
 ) -> MessageData {
     info!("Received Movie File Delete webhook from Radarr.");
     let mut builder = MessageDataBuilder::new();
@@ -182,6 +205,7 @@ fn on_movie_file_delete(
         &mut builder,
         "Movie File Deleted",
         &format_title_with_movie(&movie),
+        server_name,
     );
     builder.add_key_value(
         "Reason",

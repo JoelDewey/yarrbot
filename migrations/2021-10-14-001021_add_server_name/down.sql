@@ -1,0 +1,1 @@
+ALTER TABLE IF EXISTS webhooks DROP COLUMN IF EXISTS server_name;

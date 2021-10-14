@@ -123,9 +123,10 @@ user specified in the `YARRBOT_INITIALIZATION_USER` environment variable. Yarrbo
 * `!yarrbot ping`: Testing command to which Yarrbot will reply with `pong`.
 * `!yarrbot help`: Prints help information on the commands that Yarrbot supports, similar to this list.
 * `!yarrbot sourcecode`: Get a link to the source code of Yarrbot.
-* `!yarrbot webhook add roomOrAliasId username [password]`: Configures the bot to listen for webhook notifications to 
+* `!yarrbot webhook add roomOrAliasId username [password] [serverName]`: Configures the bot to listen for webhook notifications to 
   relay to the given room. Requires that one specifies a username; a password may be supplied, otherwise Yarrbot will 
   generate one. This command will return an ID to use in the path to the webhook API supplied by the bot (e.g. `/api/v1/webhook/abcd1234`).
+  One may also supply an optional server name which will be used as a prefix in the titles of notifications.
 * `!yarrbot webhook list`: List the webhooks in the system.
 * `!yarrbot webhook remove webhookId`: Removes a webhook by its ID, provided by the `webhook list` or `webhook add` 
   commands.

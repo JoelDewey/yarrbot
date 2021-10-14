@@ -47,15 +47,19 @@ fn deserialize_body(body: web::BytesMut) -> Result<ArrWebhook> {
     })
 }
 
-async fn handle_webhook(body: ArrWebhook, root_span: &RootSpan) -> Result<MessageData> {
+async fn handle_webhook(
+    body: ArrWebhook,
+    root_span: &RootSpan,
+    server_name: &Option<String>,
+) -> Result<MessageData> {
     match body {
         ArrWebhook::Sonarr(w) => {
             root_span.record("webhook_arr_type", &SONARR_NAME);
-            handle_sonarr_webhook(w).await
+            handle_sonarr_webhook(w, server_name).await
         }
         ArrWebhook::Radarr(w) => {
             root_span.record("webhook_arr_type", &RADARR_NAME);
-            handle_radarr_webhook(w).await
+            handle_radarr_webhook(w, server_name).await
         }
     }
 }
@@ -87,7 +91,7 @@ async fn index<T: MatrixClient>(
 
     if let Ok(body) = deserialization_result {
         let webhook = &webhook_info.webhook;
-        let message = handle_webhook(body, &root_span)
+        let message = handle_webhook(body, &root_span, &webhook.server_name)
             .instrument(info_span!("Converting Webhook to Matrix Message"))
             .await;
         match message {

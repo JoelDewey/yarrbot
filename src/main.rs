@@ -3,12 +3,18 @@ mod matrix_initialization;
 
 extern crate dotenv;
 
-use crate::matrix_initialization::initialize_matrix_client;
-use anyhow::{Context, Result};
+use crate::matrix_initialization::initialize_matrix_components;
+use anyhow::{bail, Context, Result};
 use dotenv::dotenv;
 use std::str::FromStr;
-use tokio::runtime::Handle;
-use tracing::info;
+use std::time::Duration;
+use tokio::signal::{
+    ctrl_c,
+    unix::{signal, SignalKind},
+};
+use tokio::sync::mpsc;
+use tokio::sync::watch;
+use tracing::{debug, error, info, warn};
 use tracing_actix_web::TracingLogger;
 use tracing_log::LogTracer;
 use tracing_subscriber::layer::SubscriberExt;
@@ -23,6 +29,7 @@ use yarrbot_matrix_client::YarrbotMatrixClient;
 use yarrbot_webhook_api::{webhook_config, YarrbotRootSpan};
 
 const DEFAULT_TRACE_FILTER: &str = "warn,yarrbot=info";
+const SHUTDOWN_WAIT_TIME_SEC: u64 = 10;
 
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -61,14 +68,23 @@ async fn main() -> Result<(), anyhow::Error> {
     first_time_initialization::first_time_initialization(&pool)?;
 
     info!("Starting up the connection to the Matrix server...");
-    let matrix_client = initialize_matrix_client(pool.clone()).await?;
-    let matrix_client2 = matrix_client.clone();
-    let handle = Handle::current();
-
-    std::thread::spawn(move || {
-        handle.spawn(async move {
-            matrix_client2.start_sync_loop().await.unwrap();
-        });
+    let (shutdown_tx, shutdown_rx) = watch::channel(true);
+    let (shutdown_complete_tx, mut shutdown_complete_rx) = mpsc::channel::<()>(1);
+    let (matrix_client, mut message_handler, mut sync_handler) =
+        initialize_matrix_components(pool.clone(), shutdown_rx).await?;
+    let sync_shutdown = shutdown_complete_tx.clone();
+    let sync_handle = tokio::spawn(async move {
+        sync_handler
+            .start_sync_loop(sync_shutdown)
+            .await
+            .expect("Matrix sync handler failed.")
+    });
+    let send_shutdown = shutdown_complete_tx.clone();
+    let send_handle = tokio::spawn(async move {
+        message_handler
+            .handle_messages(send_shutdown)
+            .await
+            .expect("Matrix send handler failed.")
     });
 
     info!("Staring up web server...");
@@ -81,11 +97,51 @@ async fn main() -> Result<(), anyhow::Error> {
     })
     .bind(format!("127.0.0.1:{}", get_port()?))?
     .run();
+    let http_shutdown = shutdown_complete_tx.clone();
+    let http_handle = tokio::spawn(async move {
+        http_server.await.expect("Actix server failed.");
+        // Actix-Web has its own facility for listening to shutdown signals.
+        // Drop the channel sender once that happens (the future completes).
+        drop(http_shutdown);
+    });
+    let handles = vec![sync_handle, send_handle, http_handle];
 
     info!("Yarrbot started!");
-    http_server.await?;
 
-    info!("Shutting Yarrbot down.");
+    let mut sigterm = signal(SignalKind::terminate())?;
+    tokio::select! {
+        res = ctrl_c() => {
+            debug!("Received SIGINT.");
+            if let Err(e) = res {
+                error!(error = ?e, "Encountered error while listening for SIGINT.");
+            }
+        },
+        _ = sigterm.recv() => {
+            debug!("Received SIGTERM.");
+        }
+    }
+
+    if let Err(e) = shutdown_tx.send(false) {
+        error!(error = ?e, "Failed to send shutdown signal, aborting workers.");
+        handles.iter().map(|h| h.abort()).count();
+        bail!("Force exiting due to failures.");
+    }
+
+    // Drop the original shutdown_complete sender channel and then wait for the receiver channel
+    // future to complete, which indicates that all of the workers have shut down.
+    info!(
+        "Shutting down Yarrbot, waiting up to {} seconds.",
+        SHUTDOWN_WAIT_TIME_SEC
+    );
+    drop(shutdown_complete_tx);
+    tokio::select! {
+        _ = shutdown_complete_rx.recv() => {},
+        _ = tokio::time::sleep(Duration::from_secs(SHUTDOWN_WAIT_TIME_SEC)) => {
+            warn!("Yarrbot failed to shutdown within a timely manner. Data may have been lost.");
+        }
+    }
+
+    info!("Yarrbot shut down.");
     Ok(())
 }
 

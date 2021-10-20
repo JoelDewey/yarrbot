@@ -9,9 +9,8 @@ use tracing_log::LogTracer;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::{EnvFilter, Registry};
 use yarrbot_common::environment::variables::LOG_FILTER;
-use yarrbot_db::models::MatrixRoom;
 use yarrbot_db::{build_pool, DbPool};
-use yarrbot_matrix_client::message::{Message, MessageData};
+use yarrbot_matrix_client::message::Message;
 use yarrbot_matrix_client::MatrixClient;
 
 static INIT: Once = Once::new();

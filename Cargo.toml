@@ -1,6 +1,6 @@
 [package]
 name = "yarrbot"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2018"
 
 [[bin]]
@@ -25,7 +25,7 @@ tracing-actix-web = "0.4.0-beta.12"
 tracing-log = "0.1.2"
 tracing-appender = "0.1.2"
 url = "2.2.2"
-tokio = { version = "1", features = ["rt", "sync"] }
+tokio = { version = "1", features = ["rt", "sync", "signal", "macros", "time"] }
 yarrbot_common = { path = "crates/common" }
 yarrbot_db = { path = "crates/db" }
 yarrbot_webhook_api = { path = "crates/webhook_api" }

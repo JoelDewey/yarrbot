@@ -9,9 +9,8 @@ use tracing_log::LogTracer;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::{EnvFilter, Registry};
 use yarrbot_common::environment::variables::LOG_FILTER;
-use yarrbot_db::models::MatrixRoom;
 use yarrbot_db::{build_pool, DbPool};
-use yarrbot_matrix_client::message::MessageData;
+use yarrbot_matrix_client::message::Message;
 use yarrbot_matrix_client::MatrixClient;
 
 static INIT: Once = Once::new();
@@ -46,13 +45,13 @@ pub fn setup() {
 /// Fake implementation of [MatrixClient] that captures the [MessageData]+[MatrixRoom] information provided to it.
 #[derive(Clone)]
 pub struct SpyMatrixClient {
-    messages: Arc<RwLock<Vec<(MessageData, MatrixRoom)>>>,
+    messages: Arc<RwLock<Vec<Message>>>,
 }
 
 impl SpyMatrixClient {
     pub fn new() -> Self {
         SpyMatrixClient {
-            messages: Arc::new(RwLock::new(Vec::<(MessageData, MatrixRoom)>::new())),
+            messages: Arc::new(RwLock::new(Vec::<Message>::new())),
         }
     }
 }
@@ -65,15 +64,9 @@ impl Default for SpyMatrixClient {
 
 #[async_trait]
 impl MatrixClient for SpyMatrixClient {
-    async fn send_message(&self, message: &MessageData, room: &MatrixRoom) -> anyhow::Result<()> {
+    async fn send_message(&self, message: Message) -> anyhow::Result<()> {
         let mut messages = self.messages.write().await;
-        messages.push((
-            MessageData {
-                plain: message.plain.clone(),
-                html: message.html.clone(),
-            },
-            room.clone(),
-        ));
+        messages.push(message);
 
         Ok(())
     }

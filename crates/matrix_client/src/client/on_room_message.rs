@@ -1,26 +1,29 @@
 use crate::commands::*;
-use crate::message::MessageData;
+use crate::message::{Message, MessageData};
 use anyhow::Result;
 use matrix_sdk::{
     room::Room,
     ruma::events::{
         room::message::{MessageEventContent, MessageType, TextMessageEventContent},
-        AnyMessageEventContent, SyncMessageEvent,
+        SyncMessageEvent,
     },
     Client,
 };
 use std::collections::VecDeque;
+use std::sync::Arc;
+use tokio::sync::mpsc::Sender;
 use tracing::{debug, error, info};
 use yarrbot_db::DbPool;
 
 const YARRBOT_COMMAND: &str = "!yarrbot";
 
-#[tracing::instrument(skip(client, pool, room, event), fields(event.sender = %event.sender, room.room_id = %room.room_id(), room.name))]
+#[tracing::instrument(skip(client, pool, room, event, send_handler_tx), fields(event.sender = %event.sender, room.room_id = %room.room_id(), room.name))]
 pub async fn on_room_message(
     client: &Client,
     pool: &DbPool,
     room: &Room,
     event: &SyncMessageEvent<MessageEventContent>,
+    send_handler_tx: Sender<Message>,
 ) {
     let room_name = room.name().unwrap_or_else(|| String::from("(No Name)"));
     tracing::Span::current().record("room.name", &room_name.as_str());
@@ -77,14 +80,16 @@ pub async fn on_room_message(
             };
 
             info!("Sending response to command.");
-            let send_result = room
-                .send(
-                    AnyMessageEventContent::RoomMessage(message_data.into()),
-                    None,
-                )
+            // Send our response out through the channel so that it gets buffered and eventually sent even
+            // if we're shutting down.
+            let send_result = send_handler_tx
+                .send(Message::new(
+                    room.room_id().as_str(),
+                    Arc::new(message_data),
+                ))
                 .await;
             if let Err(e) = send_result {
-                error!(error = ?e, "Encountered error while responding to command.");
+                error!(error = ?e, message = ?e.0, "Encountered error while responding to command.");
             }
         } else {
             debug!("Received first token \"{}\", ignoring.", &first);

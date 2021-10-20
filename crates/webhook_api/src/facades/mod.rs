@@ -11,12 +11,15 @@ use futures::StreamExt;
 pub use radarr_facade::handle_radarr_webhook;
 pub use sonarr_facade::handle_sonarr_webhook;
 use std::option::Option::Some;
+use std::sync::Arc;
 use tracing::{error, info, info_span, warn};
 use uuid::Uuid;
 use yarrbot_db::actions::matrix_room_actions::MatrixRoomActions;
 use yarrbot_db::models::MatrixRoom;
 use yarrbot_db::DbPool;
-use yarrbot_matrix_client::message::{MessageData, MessageDataBuilder, SectionHeadingLevel};
+use yarrbot_matrix_client::message::{
+    Message, MessageData, MessageDataBuilder, SectionHeadingLevel,
+};
 use yarrbot_matrix_client::MatrixClient;
 
 pub use radarr_facade::RADARR_NAME;
@@ -27,7 +30,7 @@ pub async fn send_matrix_messages<T: MatrixClient>(
     pool: &DbPool,
     webhook_id: &Uuid,
     client: &T,
-    message: MessageData,
+    message_data: MessageData,
 ) {
     let conn = match pool.get() {
         Ok(c) => c,
@@ -55,7 +58,11 @@ pub async fn send_matrix_messages<T: MatrixClient>(
         }
     };
     info!("Sending a webhook message to {} room(s).", rooms.len());
-    let tasks = rooms.iter().map(|r| client.send_message(&message, r));
+    let arc = Arc::new(message_data);
+    let tasks = rooms
+        .iter()
+        .map(|r| Message::new(r.room_id.as_str(), arc.clone()))
+        .map(|m| client.send_message(m));
     let mut stream = tasks.collect::<FuturesUnordered<_>>();
     while let Some(item) = stream
         .next()

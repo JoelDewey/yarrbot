@@ -52,15 +52,20 @@ impl YarrbotMessageSendHandler {
         info!(room.matrix_id = %message.destination, "Sending Matrix message to room.");
         debug!(message = ?message.message_data, "Sending Matrix message with the given contents.");
         let room_id = RoomId::try_from(message.destination.as_str())?;
-        let message_data = message.message_data;
-        let event_content: MessageEventContent = MessageEventContent::notice_html(
-            message_data.plain.as_str(),
-            message_data.html.as_str(),
-        );
-        let content = AnyMessageEventContent::RoomMessage(event_content);
+        if let Some(room) = self.client.get_joined_room(&room_id) {
+            let message_data = message.message_data;
+            let event_content: MessageEventContent = MessageEventContent::notice_html(
+                message_data.plain.as_str(),
+                message_data.html.as_str(),
+            );
+            let content = AnyMessageEventContent::RoomMessage(event_content);
 
-        self.client.room_send(&room_id, content, None).await?;
-
-        Ok(())
+            room.send(content, None).await?;
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!(
+                "Failed to send Matrix message because Yarrbot isn't a member of the desired room."
+            ))
+        }
     }
 }

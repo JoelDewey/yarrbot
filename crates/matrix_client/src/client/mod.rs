@@ -1,8 +1,13 @@
+mod configuration;
+mod initialization;
 mod on_room_message;
 mod on_stripped_state_member;
+mod room_message_actor;
+mod stripped_state_member_actor;
 
 use crate::message::Message;
-use crate::MatrixClient;
+use crate::{MatrixClient, SendMessageActor, SendToMatrix};
+use actix::Addr;
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use futures::stream::FuturesUnordered;
@@ -10,7 +15,6 @@ use futures::StreamExt;
 use itertools::Itertools;
 use matrix_sdk::{ruma::identifiers::RoomId, Client};
 use std::convert::TryFrom;
-use tokio::sync::mpsc::Sender;
 use tokio::task::spawn_blocking;
 use tracing::{error, error_span, info};
 use tracing_futures::Instrument;
@@ -18,15 +22,19 @@ use yarrbot_db::actions::matrix_room_actions::MatrixRoomActions;
 use yarrbot_db::models::MatrixRoom;
 use yarrbot_db::DbPool;
 
-pub use on_room_message::on_room_message;
-pub use on_stripped_state_member::on_stripped_state_member;
+pub use initialization::{
+    initialize_matrix_actors, initialize_matrix_sdk_client, initialize_yarrbot_matrix_client,
+};
+pub use on_room_message::OnRoomMessage;
+pub use room_message_actor::RoomMessageActor;
+pub use stripped_state_member_actor::StrippedStateMemberActor;
 
 /// A Matrix client for Yarrbot.
 #[derive(Clone)]
 pub struct YarrbotMatrixClient {
     client: Client,
     pool: DbPool,
-    message_channel: Sender<Message>,
+    message_addr: Addr<SendMessageActor>,
 }
 
 impl YarrbotMatrixClient {
@@ -59,13 +67,13 @@ impl YarrbotMatrixClient {
     pub(crate) async fn new(
         client: Client,
         pool: DbPool,
-        message_channel: Sender<Message>,
+        message_addr: Addr<SendMessageActor>,
     ) -> Result<Self> {
         YarrbotMatrixClient::init(&client, &pool).await?;
         Ok(YarrbotMatrixClient {
             client,
             pool,
-            message_channel,
+            message_addr,
         })
     }
 }
@@ -73,9 +81,11 @@ impl YarrbotMatrixClient {
 #[async_trait]
 impl MatrixClient for YarrbotMatrixClient {
     async fn send_message(&self, message: Message) -> Result<()> {
-        self.message_channel
-            .send(message)
-            .await
+        self.message_addr
+            .try_send(SendToMatrix::new(
+                message.destination.as_str(),
+                message.message_data,
+            ))
             .context("Failed to send message over mpsc channel.")
     }
 }

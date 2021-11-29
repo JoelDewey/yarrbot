@@ -1,33 +1,34 @@
 mod first_time_initialization;
-mod matrix_initialization;
-mod web_initialization;
 
 extern crate dotenv;
 
-use crate::matrix_initialization::{
-    initialize_matrix_components, start_send_handler, start_sync_handler,
-};
-use crate::web_initialization::initialize_web_server;
-use anyhow::{bail, Context, Result};
+use actix::Actor;
+use actix_web::{rt::Arbiter, web, App, HttpServer};
+use anyhow::{Context, Result};
 use dotenv::dotenv;
 use std::str::FromStr;
-use std::time::Duration;
-use tokio::signal::{
-    ctrl_c,
-    unix::{signal, SignalKind},
-};
-use tokio::sync::mpsc;
-use tokio::sync::watch;
-use tracing::{debug, error, info, warn};
+use tracing::info;
+use tracing_actix_web::TracingLogger;
 use tracing_log::LogTracer;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::{EnvFilter, Registry};
 use yarrbot_common::crypto::initialize_cryptography;
-use yarrbot_common::environment::{get_env_var, variables::LOG_FILTER};
+use yarrbot_common::environment::{
+    get_env_var,
+    variables::{LOG_FILTER, WEB_PORT},
+};
+use yarrbot_common::{ShutdownActor, SubscribeToShutdown};
 use yarrbot_db::{build_pool, migrate};
+use yarrbot_matrix_client::{
+    client::{
+        initialize_matrix_actors, initialize_matrix_sdk_client, initialize_yarrbot_matrix_client,
+        YarrbotMatrixClient,
+    },
+    MatrixSyncActor,
+};
+use yarrbot_webhook_api::{webhook_config, YarrbotRootSpan};
 
 const DEFAULT_TRACE_FILTER: &str = "warn,yarrbot=info";
-const SHUTDOWN_WAIT_TIME_SEC: u64 = 10;
 
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -62,61 +63,49 @@ async fn main() -> Result<(), anyhow::Error> {
     info!("Running any first-time setup functions...");
     first_time_initialization::first_time_initialization(&pool)?;
 
+    // Set up the shutdown actor, which listens for signals telling Yarrbot to stop.
+    let shutdown_addr = ShutdownActor::default().start();
+
     info!("Starting up the connection to the Matrix server...");
-    let (shutdown_tx, shutdown_rx) = watch::channel(true);
-    let (shutdown_complete_tx, mut shutdown_complete_rx) = mpsc::channel::<()>(1);
-    let (matrix_client, message_handler, sync_handler) =
-        initialize_matrix_components(pool.clone(), shutdown_rx).await?;
-    let send_handle = start_send_handler(message_handler, shutdown_complete_tx.clone());
-    let sync_handle = start_sync_handler(sync_handler, shutdown_complete_tx.clone());
+    let matrix_client = initialize_matrix_sdk_client().await?;
+    let (_room_message_addr, send_addr, _stripped_state_addr) =
+        initialize_matrix_actors(matrix_client.clone(), pool.clone())?;
+    let yarrbot_matrix_client =
+        initialize_yarrbot_matrix_client(matrix_client.clone(), pool.clone(), send_addr.clone())
+            .await?;
 
-    info!("Staring up web server...");
-    let http_handle = initialize_web_server(pool, matrix_client, shutdown_complete_tx.clone())
-        .expect("Failed to start web server.");
-    let handles = vec![sync_handle, send_handle, http_handle];
+    // The Matrix SDK sync loop locks up the system event loop, so we move it to its own arbiter (thus its own thread).
+    let sync_arbiter = Arbiter::new();
+    let sync_shutdown_addr = shutdown_addr.clone();
+    let sync_fut = async move {
+        let sync_addr = MatrixSyncActor::new(matrix_client).start();
+        sync_shutdown_addr.do_send(SubscribeToShutdown(sync_addr.recipient()));
+    };
+    sync_arbiter.spawn(sync_fut);
 
-    info!("Yarrbot started!");
-    wait_for_signal()
-        .await
-        .expect("Failed to wait for closing signals.");
-
-    if let Err(e) = shutdown_tx.send(false) {
-        error!(error = ?e, "Failed to send shutdown signal, aborting workers.");
-        handles.iter().map(|h| h.abort()).count();
-        bail!("Force exiting due to failures.");
-    }
-
-    // Drop the original shutdown_complete sender channel and then wait for the receiver channel
-    // future to complete, which indicates that all of the workers have shut down.
-    info!(
-        "Shutting down Yarrbot, waiting up to {} seconds.",
-        SHUTDOWN_WAIT_TIME_SEC
-    );
-    drop(shutdown_complete_tx);
-    tokio::select! {
-        _ = shutdown_complete_rx.recv() => {},
-        _ = tokio::time::sleep(Duration::from_secs(SHUTDOWN_WAIT_TIME_SEC)) => {
-            warn!("Yarrbot failed to shutdown within a timely manner. Data may have been lost.");
-        }
-    }
+    info!("Yarrbot started.");
+    HttpServer::new(move || {
+        App::new()
+            .wrap(TracingLogger::<YarrbotRootSpan>::new())
+            .app_data(web::Data::new(pool.clone()))
+            .app_data(web::Data::new(yarrbot_matrix_client.clone()))
+            .service(web::scope("/api/v1").configure(webhook_config::<YarrbotMatrixClient>))
+    })
+    .bind(format!("127.0.0.1:{}", get_port()?))?
+    .run()
+    .await?;
 
     info!("Yarrbot shut down.");
     Ok(())
 }
 
-async fn wait_for_signal() -> Result<()> {
-    let mut sigterm = signal(SignalKind::terminate())?;
-    tokio::select! {
-        res = ctrl_c() => {
-            debug!("Received SIGINT.");
-            if let Err(e) = res {
-                error!(error = ?e, "Encountered error while listening for SIGINT.");
-            }
-        },
-        _ = sigterm.recv() => {
-            debug!("Received SIGTERM.");
-        }
+fn get_port() -> Result<String> {
+    let value = match get_env_var(WEB_PORT) {
+        Ok(v) => v,
+        Err(_) => String::from("8080"),
+    };
+    match u16::from_str(&value) {
+        Ok(_) => Ok(value),
+        Err(e) => Err(e).context(format!("Failed to parse \"{}\" as a valid port.", value)),
     }
-
-    Ok(())
 }

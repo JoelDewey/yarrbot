@@ -4,4 +4,4 @@ mod environment_variables;
 pub mod short_id;
 mod shutdown;
 
-pub use shutdown::ShutdownManager;
+pub use shutdown::{ShutdownActor, ShutdownNotice, SubscribeToShutdown};

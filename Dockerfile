@@ -28,4 +28,4 @@ USER yarrbot
 ENV YARRBOT_STORAGE_DIR=/data
 ENV YARRBOT_WEB_PORT=8080
 EXPOSE 8080
-CMD ["/app/yarrbot"]
+ENTRYPOINT ["/app/yarrbot"]

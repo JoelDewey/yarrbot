@@ -3422,7 +3422,7 @@ dependencies = [
 
 [[package]]
 name = "yarrbot"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "actix",
  "actix-web",

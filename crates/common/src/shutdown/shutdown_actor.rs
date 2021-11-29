@@ -9,7 +9,7 @@ use tokio::signal::{
 };
 use tracing::{debug, error, info};
 
-/// Relays notices to shutdown the Yarrbot by listening for SIGTERM or SIGINT then sending messages to 
+/// Relays notices to shutdown the Yarrbot by listening for SIGTERM or SIGINT then sending messages to
 /// any registered [subscribers].
 pub struct ShutdownActor {
     subscribers: Vec<Recipient<ShutdownNotice>>,
@@ -72,7 +72,7 @@ impl ShutdownActor {
                 debug!("Received SIGTERM.");
             }
         }
-        
+
         info!("Shutdown signal received.");
     }
 }

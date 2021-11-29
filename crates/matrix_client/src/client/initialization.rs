@@ -9,9 +9,9 @@ use tracing::debug;
 use yarrbot_db::DbPool;
 
 /// Initialize the [Client] belonging to the Matrix SDK.
-/// 
+///
 /// # Notes
-/// 
+///
 /// May return an error if logging into or syncing with the homeserver for the first time fails.
 pub async fn initialize_matrix_sdk_client() -> Result<Client> {
     let YarrbotMatrixClientSettings {

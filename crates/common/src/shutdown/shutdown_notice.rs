@@ -12,3 +12,9 @@ impl ShutdownNotice {
         ShutdownNotice {}
     }
 }
+
+impl Default for ShutdownNotice {
+    fn default() -> Self {
+        ShutdownNotice::new()
+    }
+}

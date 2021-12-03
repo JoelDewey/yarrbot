@@ -38,15 +38,15 @@ pub struct YarrbotMatrixClient {
 }
 
 impl YarrbotMatrixClient {
-    async fn init(client: &Client, pool: &DbPool) -> Result<()> {
-        let conn = pool.get()?;
+    async fn init(&self) -> Result<()> {
+        let conn = self.pool.get()?;
         info!("Retrieving list of MatrixRooms from the database.");
         let matrix_rooms = spawn_blocking(move || MatrixRoom::get_many(&conn, None)).await??;
         let join_room_tasks = matrix_rooms
             .iter()
             .map(|r| r.room_id.as_str())
             .unique()
-            .map(|room_id| join_room(client, room_id));
+            .map(|room_id| join_room(&self.client, room_id));
         let mut stream = join_room_tasks.collect::<FuturesUnordered<_>>();
         while let Some(item) = stream
             .next()
@@ -69,12 +69,13 @@ impl YarrbotMatrixClient {
         pool: DbPool,
         message_addr: Addr<SendMessageActor>,
     ) -> Result<Self> {
-        YarrbotMatrixClient::init(&client, &pool).await?;
-        Ok(YarrbotMatrixClient {
+        let yarrbot_matrix_client = YarrbotMatrixClient {
             client,
             pool,
             message_addr,
-        })
+        };
+        yarrbot_matrix_client.init().await?;
+        Ok(yarrbot_matrix_client)
     }
 }
 

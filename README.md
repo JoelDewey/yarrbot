@@ -48,8 +48,8 @@ to spam you with useless notifications.
 
 #### Quick Start
 
-Starting Yarrbot using a container image, binding to port `8081` on the host and mounting a managed volume to `/data`
-in the container:
+Starting Yarrbot using a container image, binding to port `8081` on the host, mounting a managed volume to `/data`
+in the container, and setting the UID/GID of the user and group in the container both to `1000`:
 
 ```
 podman run -d \
@@ -58,6 +58,8 @@ podman run -d \
     --secret yarrbot-matrix-pass \
     -p 8081:8080 \
     -v yarrbot-storage:/data \
+    -e PUID=1000 \
+    -e PGID=1000 \
     -e YARRBOT_DATABASE_URL_FILE=/run/secrets/yarrbot-db-url \
     -e YARRBOT_MATRIX_USERNAME=yarrbot \
     -e YARRBOT_MATRIX_PASSWORD_FILE=/run/secrets/yarrbot-matrix-pass \
@@ -114,6 +116,8 @@ the file system located at the path defined by the environment variable. See the
   logged, but only "warning" or higher messages from Yarrbot's dependencies being logged. The default is recommended for
   most users. While Yarrbot uses the [`tracing` crate](https://tracing-rs.netlify.app/tracing/) for log functionality,
   the `tracing` crate uses the [`env_logger` crate's log level controls](https://docs.rs/env_logger/0.9.0/env_logger/#enabling-logging).
+* `PUID` (container only): The user ID to assign to the user inside the container.
+* `PGID` (container only): The group ID to assign to the user's group inside the container.
 
 ### Use
 

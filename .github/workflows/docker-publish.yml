@@ -23,7 +23,7 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
-    container: rust:1.56
+    container: rust:1.57
     services:
       postgres:
         image: postgres:13.2

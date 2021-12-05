@@ -87,8 +87,9 @@ one will have to build Yarrbot themselves (see the [Build](README.md#Build) sect
 One may run Yarrbot by configuring a set of environment variables and then running the binary. Yarrbot does not require 
 root permissions and should be run under a non-root user.
 
-Any environment variable's name can be concatenated with `_FILE` to instruct Yarrbot to load the value from a file on 
-the file system located at the path defined by the environment variable. See the "Quick Start" above for an example.
+With the exception of the "container only" environment variables, any environment variable's name can be concatenated 
+with `_FILE` to instruct Yarrbot to load the value from a file on the file system located at the path defined by the 
+environment variable. See the "Quick Start" above for an example.
 
 **Ensure that you secure the file appropriately (e.g. with the appropriate permissions).**
 
@@ -116,8 +117,8 @@ the file system located at the path defined by the environment variable. See the
   logged, but only "warning" or higher messages from Yarrbot's dependencies being logged. The default is recommended for
   most users. While Yarrbot uses the [`tracing` crate](https://tracing-rs.netlify.app/tracing/) for log functionality,
   the `tracing` crate uses the [`env_logger` crate's log level controls](https://docs.rs/env_logger/0.9.0/env_logger/#enabling-logging).
-* `PUID` (container only): The user ID to assign to the user inside the container.
-* `PGID` (container only): The group ID to assign to the user's group inside the container.
+* `PUID` (container only): The user ID to assign to the user inside the container. Defaults to `1000`.
+* `PGID` (container only): The group ID to assign to the user's group inside the container. Defaults to `1000`.
 
 ### Use
 

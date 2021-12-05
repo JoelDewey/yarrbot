@@ -3412,7 +3412,7 @@ dependencies = [
 
 [[package]]
 name = "yarrbot"
-version = "0.5.6"
+version = "0.5.7"
 dependencies = [
  "actix",
  "actix-web",
@@ -3432,7 +3432,7 @@ dependencies = [
 
 [[package]]
 name = "yarrbot_common"
-version = "0.1.0"
+version = "0.5.7"
 dependencies = [
  "actix",
  "anyhow",
@@ -3445,7 +3445,7 @@ dependencies = [
 
 [[package]]
 name = "yarrbot_db"
-version = "0.1.0"
+version = "0.5.7"
 dependencies = [
  "anyhow",
  "diesel",
@@ -3461,7 +3461,7 @@ dependencies = [
 
 [[package]]
 name = "yarrbot_matrix_client"
-version = "0.1.0"
+version = "0.5.7"
 dependencies = [
  "actix",
  "anyhow",
@@ -3482,7 +3482,7 @@ dependencies = [
 
 [[package]]
 name = "yarrbot_webhook_api"
-version = "0.1.0"
+version = "0.5.7"
 dependencies = [
  "actix-rt",
  "actix-web",

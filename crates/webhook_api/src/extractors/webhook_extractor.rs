@@ -55,7 +55,6 @@ async fn is_authorized_for_webhook(auth: WebhookAuth, webhook: &Webhook) -> bool
 }
 
 impl FromRequest for WebhookInfo {
-    type Config = ();
     type Error = Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self, Self::Error>>>>;
 

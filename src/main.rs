@@ -2,8 +2,8 @@ mod first_time_initialization;
 
 extern crate dotenv;
 
-use actix::Actor;
-use actix_web::{rt::Arbiter, web, App, HttpServer};
+use actix::{Actor, Arbiter};
+use actix_web::{web, App, HttpServer};
 use anyhow::{Context, Result};
 use dotenv::dotenv;
 use std::str::FromStr;
@@ -11,7 +11,7 @@ use tracing::info;
 use tracing_actix_web::TracingLogger;
 use tracing_log::LogTracer;
 use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::{EnvFilter, Registry};
+use tracing_subscriber::{filter::EnvFilter, Registry};
 use yarrbot_common::crypto::initialize_cryptography;
 use yarrbot_common::environment::{
     get_env_var,
